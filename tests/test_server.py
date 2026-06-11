@@ -62,6 +62,18 @@ async def test_briefing_endpoint(api):
     assert "SITUATION BRIEFING" in r.json()["briefing"]
 
 
+async def test_snapshot_survives_save_with_stale_map_data(api):
+    # saves embed map_data; older saves may lack presentation fields like x/y
+    session = get_session()
+    session.new_game()
+    for region in session.campaign.state.map_data["regions"]:
+        region.pop("x", None)
+        region.pop("y", None)
+    snap = (await api.get("/api/game")).json()
+    moscow = next(r for r in snap["regions"] if r["id"] == "moscow")
+    assert isinstance(moscow["x"], (int, float))
+
+
 async def test_game_state_persists_across_session_reload(api, tmp_path):
     await api.post("/api/game/new")
     await api.post("/api/game/end-turn")

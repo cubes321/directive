@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIRECTIVE — Heeresgruppe Mitte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Staatliches&family=Special+Elite&family=Archivo+Narrow:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="grain"></div>
+
+<header id="topbar">
+  <div class="brand">
+    <span class="brand-title">DIRECTIVE</span>
+    <span class="brand-sub">HEERESGRUPPE MITTE · LAGE OST</span>
+  </div>
+  <div class="status-block" id="status-date">
+    <span class="label">DATE</span>
+    <span class="value" id="hud-date">—</span>
+  </div>
+  <div class="status-block">
+    <span class="label">TURN</span>
+    <span class="value" id="hud-turn">—</span>
+  </div>
+  <div class="status-block">
+    <span class="label">STANDING WITH OKH</span>
+    <span class="value capital" id="hud-capital">—</span>
+  </div>
+  <div class="status-block">
+    <span class="label">OBJECTIVE POINTS</span>
+    <span class="value" id="hud-vp">—</span>
+  </div>
+  <div class="spacer"></div>
+  <button id="btn-new" class="ghost-btn" title="Start a new campaign">NEUE LAGE</button>
+  <button id="btn-endturn" class="stamp-btn">ISSUE ORDERS<small>— end week —</small></button>
+</header>
+
+<main>
+  <section id="map-panel">
+    <div class="map-frame">
+      <div class="map-corner tl"></div><div class="map-corner tr"></div>
+      <div class="map-corner bl"></div><div class="map-corner br"></div>
+      <div class="map-stamp">GEHEIME<br>KOMMANDOSACHE</div>
+      <svg id="map" viewBox="0 0 1080 600" preserveAspectRatio="xMidYMid meet"></svg>
+      <div id="region-pop" class="hidden"></div>
+    </div>
+    <div class="map-legend">
+      <span><i class="sw own"></i> own corps</span>
+      <span><i class="sw enemy"></i> enemy contact</span>
+      <span><i class="sw rail"></i> rail</span>
+      <span><i class="sw hw"></i> highway</span>
+      <span><i class="sw star"></i> objective</span>
+    </div>
+  </section>
+
+  <section id="side-panel">
+    <nav id="tabs">
+      <button class="tab active" data-tab="dispatches">DISPATCHES</button>
+      <button class="tab" data-tab="commanders">COMMANDERS</button>
+      <button class="tab" data-tab="battles">BATTLE REPORTS</button>
+    </nav>
+    <div id="tab-dispatches" class="tab-page active"></div>
+    <div id="tab-commanders" class="tab-page"></div>
+    <div id="tab-battles" class="tab-page"></div>
+  </section>
+</main>
+
+<div id="overlay" class="hidden">
+  <div class="overlay-card">
+    <div class="overlay-title">ORDERS TRANSMITTED</div>
+    <div class="overlay-sub">The commanders are drafting their responses…</div>
+    <div class="teletype" id="overlay-ticker">▌</div>
+    <div class="overlay-elapsed" id="overlay-elapsed">0:00</div>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

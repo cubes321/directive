@@ -7,6 +7,8 @@ side's corps plus fog-of-war contacts.
 
 from __future__ import annotations
 
+import json
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -77,6 +79,12 @@ def get_session() -> Session:
 app = FastAPI(title="Directive")
 
 
+@lru_cache(maxsize=1)
+def _canonical_coords() -> dict[str, tuple[float, float]]:
+    map_data = json.loads((DATA_DIR / "map_agc.json").read_text(encoding="utf-8"))
+    return {r["id"]: (r.get("x", 0), r.get("y", 0)) for r in map_data["regions"]}
+
+
 def _report_dict(report: TurnReport | None) -> dict | None:
     if report is None:
         return None
@@ -90,14 +98,17 @@ def snapshot(session: Session) -> dict:
 
     regions = []
     for r in state.map_data["regions"]:
+        coords = _canonical_coords().get(r["id"], (0, 0))
         regions.append(
             {
                 "id": r["id"],
                 "name": r["name"],
                 "terrain": r["terrain"],
                 "victory_points": r.get("victory_points", 0),
-                "x": r["x"],
-                "y": r["y"],
+                # saves embed map_data; older saves may predate presentation
+                # fields like coordinates, so fall back to the canonical file
+                "x": r.get("x", coords[0]),
+                "y": r.get("y", coords[1]),
                 "control": state.control[r["id"]],
             }
         )
