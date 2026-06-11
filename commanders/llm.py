@@ -12,6 +12,7 @@ orders instead. Full transcripts can be logged to disk for prompt debugging.
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -108,7 +109,10 @@ class LMStudioClient:
                     f"{self.base_url}/chat/completions", json=payload
                 )
                 response.raise_for_status()
-                return response.json()["choices"][0]["message"]["content"]
+                message = response.json()["choices"][0]["message"]
+                # Thinking models served by LM Studio sometimes leave "content"
+                # empty and put everything in "reasoning_content".
+                return message.get("content") or message.get("reasoning_content") or ""
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             raise LMStudioUnavailable(
                 f"Cannot reach LM Studio at {self.base_url} - is the server running "
@@ -118,9 +122,18 @@ class LMStudioClient:
             return ""  # treated as an unparseable response -> repair/fallback path
 
     @staticmethod
-    def _parse(content: str, commander: str) -> tuple[CommanderOrders | None, list[str]]:
+    def _extract_json(content: str) -> str:
+        """Cut thinking preambles/epilogues down to the outermost JSON object."""
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL)
+        start, end = content.find("{"), content.rfind("}")
+        if start != -1 and end > start:
+            return content[start : end + 1]
+        return content
+
+    @classmethod
+    def _parse(cls, content: str, commander: str) -> tuple[CommanderOrders | None, list[str]]:
         try:
-            payload = json.loads(content)
+            payload = json.loads(cls._extract_json(content))
             orders = CommanderOrders.from_dict(
                 {
                     "commander": commander,

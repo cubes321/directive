@@ -80,6 +80,45 @@ async def test_invalid_orders_get_one_repair_attempt():
     assert "sov_13a" in repair_text
 
 
+async def test_answer_in_reasoning_content_is_used():
+    # LM Studio + thinking models (e.g. Qwen3.6) can leave "content" empty and
+    # put the whole output, including the final JSON, in "reasoning_content".
+    state, dossier = setup_state()
+
+    def responder(request):
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": "",
+                            "reasoning_content": json.dumps(valid_payload()) + "\n",
+                        }
+                    }
+                ]
+            },
+        )
+
+    client = make_client(responder)
+    orders = await client.request_orders(state, dossier)
+    assert orders.orders[0].objective == "baranovichi"
+
+
+async def test_json_is_extracted_from_thinking_preamble():
+    state, dossier = setup_state()
+    content = "<think>\nMinsk is the key.\n</think>\n" + json.dumps(valid_payload())
+
+    def responder(request):
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": content}}]}
+        )
+
+    client = make_client(responder)
+    orders = await client.request_orders(state, dossier)
+    assert orders.orders[0].objective == "baranovichi"
+
+
 async def test_persistent_garbage_falls_back_to_hold_orders():
     state, dossier = setup_state()
 
