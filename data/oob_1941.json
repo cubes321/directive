@@ -1,0 +1,39 @@
+{
+  "supply_sources": {
+    "axis": ["warsaw", "suwalki"],
+    "soviet": ["moscow", "gomel"]
+  },
+  "corps": [
+    {"id": "xxiv_pz", "name": "XXIV Panzer Corps", "side": "axis", "kind": "panzer", "location": "brest", "commander": "guderian", "experience": 75},
+    {"id": "xlvi_pz", "name": "XLVI Panzer Corps", "side": "axis", "kind": "panzer", "location": "brest", "commander": "guderian", "experience": 70},
+    {"id": "xlvii_pz", "name": "XLVII Panzer Corps", "side": "axis", "kind": "panzer", "location": "brest", "commander": "guderian", "experience": 75},
+    {"id": "xxxix_pz", "name": "XXXIX Panzer Corps", "side": "axis", "kind": "panzer", "location": "suwalki", "commander": "hoth", "experience": 75},
+    {"id": "lvii_pz", "name": "LVII Panzer Corps", "side": "axis", "kind": "panzer", "location": "suwalki", "commander": "hoth", "experience": 70},
+    {"id": "vii_ak", "name": "VII Army Corps", "side": "axis", "kind": "infantry", "location": "siedlce", "commander": "kluge", "experience": 70},
+    {"id": "ix_ak", "name": "IX Army Corps", "side": "axis", "kind": "infantry", "location": "siedlce", "commander": "kluge", "experience": 70},
+    {"id": "xii_ak", "name": "XII Army Corps", "side": "axis", "kind": "infantry", "location": "siedlce", "commander": "kluge", "experience": 65},
+    {"id": "xiii_ak", "name": "XIII Army Corps", "side": "axis", "kind": "infantry", "location": "warsaw", "commander": "kluge", "experience": 65},
+    {"id": "viii_ak", "name": "VIII Army Corps", "side": "axis", "kind": "infantry", "location": "lomza", "commander": "strauss", "experience": 70},
+    {"id": "xx_ak", "name": "XX Army Corps", "side": "axis", "kind": "infantry", "location": "lomza", "commander": "strauss", "experience": 65},
+    {"id": "xlii_ak", "name": "XLII Army Corps", "side": "axis", "kind": "infantry", "location": "lomza", "commander": "strauss", "experience": 65},
+    {"id": "xxxv_ak", "name": "XXXV Army Corps", "side": "axis", "kind": "infantry", "location": "warsaw", "commander": "weichs", "experience": 65},
+    {"id": "liii_ak", "name": "LIII Army Corps", "side": "axis", "kind": "infantry", "location": "warsaw", "commander": "weichs", "experience": 65},
+
+    {"id": "sov_3a", "name": "3rd Army", "side": "soviet", "kind": "infantry", "location": "grodno", "commander": "pavlov", "strength": 90, "organization": 70, "experience": 30},
+    {"id": "sov_10a", "name": "10th Army", "side": "soviet", "kind": "infantry", "location": "bialystok", "commander": "pavlov", "strength": 100, "organization": 70, "experience": 30},
+    {"id": "sov_4a", "name": "4th Army", "side": "soviet", "kind": "infantry", "location": "baranovichi", "commander": "pavlov", "strength": 90, "organization": 60, "experience": 25},
+    {"id": "sov_13a", "name": "13th Army", "side": "soviet", "kind": "infantry", "location": "minsk", "commander": "pavlov", "strength": 90, "organization": 65, "experience": 30},
+    {"id": "sov_20a", "name": "20th Army", "side": "soviet", "kind": "infantry", "location": "orsha", "commander": "timoshenko", "strength": 90, "organization": 70, "experience": 35},
+    {"id": "sov_19a", "name": "19th Army", "side": "soviet", "kind": "infantry", "location": "vitebsk", "commander": "timoshenko", "strength": 90, "organization": 70, "experience": 35},
+    {"id": "sov_16a", "name": "16th Army", "side": "soviet", "kind": "infantry", "location": "smolensk", "commander": "timoshenko", "strength": 90, "organization": 75, "experience": 35},
+    {"id": "sov_21a", "name": "21st Army", "side": "soviet", "kind": "infantry", "location": "mogilev", "commander": "timoshenko", "strength": 90, "organization": 70, "experience": 30},
+    {"id": "sov_22a", "name": "22nd Army", "side": "soviet", "kind": "infantry", "location": "velikie_luki", "commander": "konev", "strength": 85, "organization": 70, "experience": 35},
+    {"id": "sov_24a", "name": "24th Army", "side": "soviet", "kind": "infantry", "location": "yelnya", "commander": "konev", "strength": 85, "organization": 70, "experience": 35},
+    {"id": "sov_29a", "name": "29th Army", "side": "soviet", "kind": "infantry", "location": "rzhev", "commander": "konev", "strength": 85, "organization": 70, "experience": 30},
+    {"id": "sov_32a", "name": "32nd Army", "side": "soviet", "kind": "infantry", "location": "vyazma", "commander": "zhukov", "strength": 80, "organization": 75, "experience": 35},
+    {"id": "sov_33a", "name": "33rd Army", "side": "soviet", "kind": "infantry", "location": "mozhaisk", "commander": "zhukov", "strength": 80, "organization": 75, "experience": 35},
+    {"id": "sov_43a", "name": "43rd Army", "side": "soviet", "kind": "infantry", "location": "kaluga", "commander": "zhukov", "strength": 80, "organization": 75, "experience": 35},
+    {"id": "sov_50a", "name": "50th Army", "side": "soviet", "kind": "infantry", "location": "tula", "commander": "zhukov", "strength": 80, "organization": 75, "experience": 35},
+    {"id": "sov_49a", "name": "49th Army", "side": "soviet", "kind": "infantry", "location": "moscow", "commander": "zhukov", "strength": 85, "organization": 80, "experience": 40}
+  ]
+}
