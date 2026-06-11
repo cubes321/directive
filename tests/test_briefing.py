@@ -43,6 +43,15 @@ def test_briefing_offers_staff_options_with_region_ids():
     assert "baranovichi" in text  # machine-usable region id present
 
 
+def test_briefing_lists_legal_destinations_per_corps():
+    text = briefing_for_guderian()
+    # xxiv_pz at brest: baranovichi and pripyat are in range, minsk is not
+    in_range_line = next(l for l in text.splitlines() if l.strip().startswith("In range"))
+    assert "baranovichi" in in_range_line
+    assert "pripyat" in in_range_line
+    assert "minsk" not in in_range_line
+
+
 def test_briefing_only_covers_own_corps():
     text = briefing_for_guderian()
     assert "XXXIX Panzer Corps" not in text  # that's hoth's

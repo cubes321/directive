@@ -1,124 +1,918 @@
 {
   "regions": [
-    {"id": "warsaw", "name": "Warsaw", "terrain": "urban"},
-    {"id": "siedlce", "name": "Siedlce", "terrain": "clear"},
-    {"id": "lomza", "name": "Lomza", "terrain": "clear"},
-    {"id": "brest", "name": "Brest-Litovsk", "terrain": "clear"},
-    {"id": "suwalki", "name": "Suwalki", "terrain": "forest"},
-    {"id": "bialystok", "name": "Bialystok", "terrain": "clear"},
-    {"id": "grodno", "name": "Grodno", "terrain": "clear"},
-    {"id": "volkovysk", "name": "Volkovysk", "terrain": "clear"},
-    {"id": "slonim", "name": "Slonim", "terrain": "clear"},
-    {"id": "baranovichi", "name": "Baranovichi", "terrain": "clear"},
-    {"id": "lida", "name": "Lida", "terrain": "forest"},
-    {"id": "vilnius", "name": "Vilnius", "terrain": "urban", "victory_points": 2},
-    {"id": "molodechno", "name": "Molodechno", "terrain": "clear"},
-    {"id": "minsk", "name": "Minsk", "terrain": "urban", "victory_points": 5},
-    {"id": "pripyat", "name": "Pripyat Marshes", "terrain": "marsh"},
-    {"id": "slutsk", "name": "Slutsk", "terrain": "clear"},
-    {"id": "bobruisk", "name": "Bobruisk", "terrain": "clear"},
-    {"id": "borisov", "name": "Borisov", "terrain": "clear"},
-    {"id": "lepel", "name": "Lepel", "terrain": "forest"},
-    {"id": "polotsk", "name": "Polotsk", "terrain": "clear"},
-    {"id": "vitebsk", "name": "Vitebsk", "terrain": "urban", "victory_points": 3},
-    {"id": "orsha", "name": "Orsha", "terrain": "clear"},
-    {"id": "mogilev", "name": "Mogilev", "terrain": "urban", "victory_points": 2},
-    {"id": "gomel", "name": "Gomel", "terrain": "clear", "victory_points": 2},
-    {"id": "krichev", "name": "Krichev", "terrain": "clear"},
-    {"id": "nevel", "name": "Nevel", "terrain": "forest"},
-    {"id": "velikie_luki", "name": "Velikie Luki", "terrain": "clear", "victory_points": 2},
-    {"id": "smolensk", "name": "Smolensk", "terrain": "urban", "victory_points": 10},
-    {"id": "yelnya", "name": "Yelnya", "terrain": "clear"},
-    {"id": "roslavl", "name": "Roslavl", "terrain": "clear"},
-    {"id": "bryansk", "name": "Bryansk", "terrain": "forest", "victory_points": 3},
-    {"id": "dorogobuzh", "name": "Dorogobuzh", "terrain": "clear"},
-    {"id": "vyazma", "name": "Vyazma", "terrain": "clear", "victory_points": 3},
-    {"id": "sychevka", "name": "Sychevka", "terrain": "clear"},
-    {"id": "rzhev", "name": "Rzhev", "terrain": "clear", "victory_points": 2},
-    {"id": "gzhatsk", "name": "Gzhatsk", "terrain": "clear"},
-    {"id": "yukhnov", "name": "Yukhnov", "terrain": "forest"},
-    {"id": "kaluga", "name": "Kaluga", "terrain": "clear", "victory_points": 2},
-    {"id": "maloyaroslavets", "name": "Maloyaroslavets", "terrain": "clear"},
-    {"id": "mozhaisk", "name": "Mozhaisk", "terrain": "clear", "victory_points": 2},
-    {"id": "volokolamsk", "name": "Volokolamsk", "terrain": "clear"},
-    {"id": "klin", "name": "Klin", "terrain": "clear"},
-    {"id": "kalinin", "name": "Kalinin", "terrain": "urban", "victory_points": 3},
-    {"id": "naro_fominsk", "name": "Naro-Fominsk", "terrain": "forest"},
-    {"id": "serpukhov", "name": "Serpukhov", "terrain": "clear"},
-    {"id": "tula", "name": "Tula", "terrain": "urban", "victory_points": 5},
-    {"id": "moscow", "name": "Moscow", "terrain": "urban", "victory_points": 25}
+    {
+      "id": "warsaw",
+      "name": "Warsaw",
+      "terrain": "urban",
+      "x": 30,
+      "y": 430
+    },
+    {
+      "id": "siedlce",
+      "name": "Siedlce",
+      "terrain": "clear",
+      "x": 95,
+      "y": 415
+    },
+    {
+      "id": "lomza",
+      "name": "Lomza",
+      "terrain": "clear",
+      "x": 110,
+      "y": 330
+    },
+    {
+      "id": "brest",
+      "name": "Brest-Litovsk",
+      "terrain": "clear",
+      "x": 160,
+      "y": 470
+    },
+    {
+      "id": "suwalki",
+      "name": "Suwalki",
+      "terrain": "forest",
+      "x": 160,
+      "y": 240
+    },
+    {
+      "id": "bialystok",
+      "name": "Bialystok",
+      "terrain": "clear",
+      "x": 195,
+      "y": 345
+    },
+    {
+      "id": "grodno",
+      "name": "Grodno",
+      "terrain": "clear",
+      "x": 245,
+      "y": 270
+    },
+    {
+      "id": "volkovysk",
+      "name": "Volkovysk",
+      "terrain": "clear",
+      "x": 275,
+      "y": 355
+    },
+    {
+      "id": "slonim",
+      "name": "Slonim",
+      "terrain": "clear",
+      "x": 335,
+      "y": 395
+    },
+    {
+      "id": "baranovichi",
+      "name": "Baranovichi",
+      "terrain": "clear",
+      "x": 405,
+      "y": 425
+    },
+    {
+      "id": "lida",
+      "name": "Lida",
+      "terrain": "forest",
+      "x": 330,
+      "y": 280
+    },
+    {
+      "id": "vilnius",
+      "name": "Vilnius",
+      "terrain": "urban",
+      "victory_points": 2,
+      "x": 350,
+      "y": 180
+    },
+    {
+      "id": "molodechno",
+      "name": "Molodechno",
+      "terrain": "clear",
+      "x": 430,
+      "y": 250
+    },
+    {
+      "id": "minsk",
+      "name": "Minsk",
+      "terrain": "urban",
+      "victory_points": 5,
+      "x": 490,
+      "y": 320
+    },
+    {
+      "id": "pripyat",
+      "name": "Pripyat Marshes",
+      "terrain": "marsh",
+      "x": 310,
+      "y": 545
+    },
+    {
+      "id": "slutsk",
+      "name": "Slutsk",
+      "terrain": "clear",
+      "x": 455,
+      "y": 465
+    },
+    {
+      "id": "bobruisk",
+      "name": "Bobruisk",
+      "terrain": "clear",
+      "x": 565,
+      "y": 460
+    },
+    {
+      "id": "borisov",
+      "name": "Borisov",
+      "terrain": "clear",
+      "x": 560,
+      "y": 285
+    },
+    {
+      "id": "lepel",
+      "name": "Lepel",
+      "terrain": "forest",
+      "x": 590,
+      "y": 205
+    },
+    {
+      "id": "polotsk",
+      "name": "Polotsk",
+      "terrain": "clear",
+      "x": 600,
+      "y": 125
+    },
+    {
+      "id": "vitebsk",
+      "name": "Vitebsk",
+      "terrain": "urban",
+      "victory_points": 3,
+      "x": 670,
+      "y": 170
+    },
+    {
+      "id": "orsha",
+      "name": "Orsha",
+      "terrain": "clear",
+      "x": 650,
+      "y": 280
+    },
+    {
+      "id": "mogilev",
+      "name": "Mogilev",
+      "terrain": "urban",
+      "victory_points": 2,
+      "x": 660,
+      "y": 385
+    },
+    {
+      "id": "gomel",
+      "name": "Gomel",
+      "terrain": "clear",
+      "victory_points": 2,
+      "x": 685,
+      "y": 545
+    },
+    {
+      "id": "krichev",
+      "name": "Krichev",
+      "terrain": "clear",
+      "x": 725,
+      "y": 425
+    },
+    {
+      "id": "nevel",
+      "name": "Nevel",
+      "terrain": "forest",
+      "x": 680,
+      "y": 75
+    },
+    {
+      "id": "velikie_luki",
+      "name": "Velikie Luki",
+      "terrain": "clear",
+      "victory_points": 2,
+      "x": 765,
+      "y": 45
+    },
+    {
+      "id": "smolensk",
+      "name": "Smolensk",
+      "terrain": "urban",
+      "victory_points": 10,
+      "x": 750,
+      "y": 250
+    },
+    {
+      "id": "yelnya",
+      "name": "Yelnya",
+      "terrain": "clear",
+      "x": 810,
+      "y": 330
+    },
+    {
+      "id": "roslavl",
+      "name": "Roslavl",
+      "terrain": "clear",
+      "x": 790,
+      "y": 425
+    },
+    {
+      "id": "bryansk",
+      "name": "Bryansk",
+      "terrain": "forest",
+      "victory_points": 3,
+      "x": 865,
+      "y": 505
+    },
+    {
+      "id": "dorogobuzh",
+      "name": "Dorogobuzh",
+      "terrain": "clear",
+      "x": 825,
+      "y": 260
+    },
+    {
+      "id": "vyazma",
+      "name": "Vyazma",
+      "terrain": "clear",
+      "victory_points": 3,
+      "x": 875,
+      "y": 250
+    },
+    {
+      "id": "sychevka",
+      "name": "Sychevka",
+      "terrain": "clear",
+      "x": 880,
+      "y": 175
+    },
+    {
+      "id": "rzhev",
+      "name": "Rzhev",
+      "terrain": "clear",
+      "victory_points": 2,
+      "x": 870,
+      "y": 105
+    },
+    {
+      "id": "gzhatsk",
+      "name": "Gzhatsk",
+      "terrain": "clear",
+      "x": 925,
+      "y": 230
+    },
+    {
+      "id": "yukhnov",
+      "name": "Yukhnov",
+      "terrain": "forest",
+      "x": 885,
+      "y": 335
+    },
+    {
+      "id": "kaluga",
+      "name": "Kaluga",
+      "terrain": "clear",
+      "victory_points": 2,
+      "x": 945,
+      "y": 385
+    },
+    {
+      "id": "maloyaroslavets",
+      "name": "Maloyaroslavets",
+      "terrain": "clear",
+      "x": 955,
+      "y": 315
+    },
+    {
+      "id": "mozhaisk",
+      "name": "Mozhaisk",
+      "terrain": "clear",
+      "victory_points": 2,
+      "x": 950,
+      "y": 235
+    },
+    {
+      "id": "volokolamsk",
+      "name": "Volokolamsk",
+      "terrain": "clear",
+      "x": 930,
+      "y": 155
+    },
+    {
+      "id": "klin",
+      "name": "Klin",
+      "terrain": "clear",
+      "x": 985,
+      "y": 110
+    },
+    {
+      "id": "kalinin",
+      "name": "Kalinin",
+      "terrain": "urban",
+      "victory_points": 3,
+      "x": 940,
+      "y": 55
+    },
+    {
+      "id": "naro_fominsk",
+      "name": "Naro-Fominsk",
+      "terrain": "forest",
+      "x": 985,
+      "y": 290
+    },
+    {
+      "id": "serpukhov",
+      "name": "Serpukhov",
+      "terrain": "clear",
+      "x": 1005,
+      "y": 360
+    },
+    {
+      "id": "tula",
+      "name": "Tula",
+      "terrain": "urban",
+      "victory_points": 5,
+      "x": 1035,
+      "y": 425
+    },
+    {
+      "id": "moscow",
+      "name": "Moscow",
+      "terrain": "urban",
+      "victory_points": 25,
+      "x": 1025,
+      "y": 200
+    }
   ],
   "edges": [
-    {"between": ["warsaw", "siedlce"], "road": "highway", "rail": true},
-    {"between": ["warsaw", "lomza"], "road": "minor", "rail": true},
-    {"between": ["siedlce", "brest"], "road": "highway", "rail": true},
-    {"between": ["lomza", "suwalki"], "road": "minor", "rail": true},
-    {"between": ["lomza", "bialystok"], "road": "minor", "rail": true},
-    {"between": ["suwalki", "grodno"], "road": "minor", "rail": false},
-    {"between": ["suwalki", "vilnius"], "road": "minor", "rail": true},
-    {"between": ["grodno", "bialystok"], "road": "highway", "rail": true},
-    {"between": ["grodno", "lida"], "road": "minor", "rail": true},
-    {"between": ["bialystok", "volkovysk"], "road": "highway", "rail": true},
-    {"between": ["volkovysk", "slonim"], "road": "highway", "rail": true},
-    {"between": ["slonim", "baranovichi"], "road": "highway", "rail": true},
-    {"between": ["brest", "baranovichi"], "road": "highway", "rail": true},
-    {"between": ["brest", "pripyat"], "road": "minor", "rail": false},
-    {"between": ["pripyat", "slutsk"], "road": "minor", "rail": false},
-    {"between": ["slutsk", "minsk"], "road": "minor", "rail": false},
-    {"between": ["slutsk", "bobruisk"], "road": "minor", "rail": false},
-    {"between": ["baranovichi", "minsk"], "road": "highway", "rail": true},
-    {"between": ["lida", "vilnius"], "road": "minor", "rail": true},
-    {"between": ["lida", "molodechno"], "road": "minor", "rail": false},
-    {"between": ["vilnius", "molodechno"], "road": "highway", "rail": true},
-    {"between": ["molodechno", "minsk"], "road": "highway", "rail": true},
-    {"between": ["molodechno", "polotsk"], "road": "minor", "rail": true},
-    {"between": ["minsk", "borisov"], "road": "highway", "rail": true},
-    {"between": ["borisov", "orsha"], "road": "highway", "rail": true},
-    {"between": ["borisov", "lepel"], "road": "minor", "rail": false},
-    {"between": ["lepel", "vitebsk"], "road": "minor", "rail": false},
-    {"between": ["lepel", "polotsk"], "road": "minor", "rail": false},
-    {"between": ["polotsk", "vitebsk"], "road": "minor", "rail": true},
-    {"between": ["polotsk", "nevel"], "road": "minor", "rail": true},
-    {"between": ["nevel", "velikie_luki"], "road": "minor", "rail": true},
-    {"between": ["velikie_luki", "rzhev"], "road": "minor", "rail": true},
-    {"between": ["vitebsk", "smolensk"], "road": "highway", "rail": true},
-    {"between": ["vitebsk", "orsha"], "road": "minor", "rail": true},
-    {"between": ["orsha", "smolensk"], "road": "highway", "rail": true},
-    {"between": ["orsha", "mogilev"], "road": "minor", "rail": true},
-    {"between": ["mogilev", "bobruisk"], "road": "minor", "rail": false},
-    {"between": ["mogilev", "krichev"], "road": "minor", "rail": true},
-    {"between": ["bobruisk", "gomel"], "road": "minor", "rail": true},
-    {"between": ["gomel", "krichev"], "road": "minor", "rail": false},
-    {"between": ["krichev", "roslavl"], "road": "minor", "rail": true},
-    {"between": ["smolensk", "yelnya"], "road": "minor", "rail": true},
-    {"between": ["smolensk", "dorogobuzh"], "road": "highway", "rail": true},
-    {"between": ["yelnya", "dorogobuzh"], "road": "minor", "rail": false},
-    {"between": ["yelnya", "roslavl"], "road": "minor", "rail": false},
-    {"between": ["roslavl", "bryansk"], "road": "minor", "rail": true},
-    {"between": ["bryansk", "kaluga"], "road": "minor", "rail": true},
-    {"between": ["bryansk", "tula"], "road": "minor", "rail": true},
-    {"between": ["dorogobuzh", "vyazma"], "road": "highway", "rail": true},
-    {"between": ["vyazma", "gzhatsk"], "road": "highway", "rail": true},
-    {"between": ["vyazma", "yukhnov"], "road": "minor", "rail": false},
-    {"between": ["vyazma", "sychevka"], "road": "minor", "rail": true},
-    {"between": ["sychevka", "rzhev"], "road": "minor", "rail": true},
-    {"between": ["rzhev", "kalinin"], "road": "minor", "rail": true},
-    {"between": ["rzhev", "volokolamsk"], "road": "minor", "rail": false},
-    {"between": ["kalinin", "klin"], "road": "highway", "rail": true},
-    {"between": ["klin", "moscow"], "road": "highway", "rail": true},
-    {"between": ["gzhatsk", "mozhaisk"], "road": "highway", "rail": true},
-    {"between": ["mozhaisk", "moscow"], "road": "highway", "rail": true},
-    {"between": ["volokolamsk", "klin"], "road": "minor", "rail": false},
-    {"between": ["volokolamsk", "mozhaisk"], "road": "minor", "rail": false},
-    {"between": ["volokolamsk", "moscow"], "road": "minor", "rail": true},
-    {"between": ["yukhnov", "kaluga"], "road": "minor", "rail": false},
-    {"between": ["yukhnov", "maloyaroslavets"], "road": "minor", "rail": false},
-    {"between": ["kaluga", "maloyaroslavets"], "road": "minor", "rail": true},
-    {"between": ["kaluga", "serpukhov"], "road": "minor", "rail": true},
-    {"between": ["maloyaroslavets", "naro_fominsk"], "road": "minor", "rail": false},
-    {"between": ["naro_fominsk", "moscow"], "road": "minor", "rail": true},
-    {"between": ["serpukhov", "tula"], "road": "highway", "rail": true},
-    {"between": ["serpukhov", "moscow"], "road": "highway", "rail": true},
-    {"between": ["tula", "moscow"], "road": "highway", "rail": true}
+    {
+      "between": [
+        "warsaw",
+        "siedlce"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "warsaw",
+        "lomza"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "siedlce",
+        "brest"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "lomza",
+        "suwalki"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "lomza",
+        "bialystok"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "suwalki",
+        "grodno"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "suwalki",
+        "vilnius"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "grodno",
+        "bialystok"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "grodno",
+        "lida"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "bialystok",
+        "volkovysk"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "volkovysk",
+        "slonim"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "slonim",
+        "baranovichi"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "brest",
+        "baranovichi"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "brest",
+        "pripyat"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "pripyat",
+        "slutsk"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "slutsk",
+        "minsk"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "slutsk",
+        "bobruisk"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "baranovichi",
+        "minsk"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "lida",
+        "vilnius"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "lida",
+        "molodechno"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "vilnius",
+        "molodechno"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "molodechno",
+        "minsk"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "molodechno",
+        "polotsk"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "minsk",
+        "borisov"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "borisov",
+        "orsha"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "borisov",
+        "lepel"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "lepel",
+        "vitebsk"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "lepel",
+        "polotsk"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "polotsk",
+        "vitebsk"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "polotsk",
+        "nevel"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "nevel",
+        "velikie_luki"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "velikie_luki",
+        "rzhev"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "vitebsk",
+        "smolensk"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "vitebsk",
+        "orsha"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "orsha",
+        "smolensk"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "orsha",
+        "mogilev"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "mogilev",
+        "bobruisk"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "mogilev",
+        "krichev"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "bobruisk",
+        "gomel"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "gomel",
+        "krichev"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "krichev",
+        "roslavl"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "smolensk",
+        "yelnya"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "smolensk",
+        "dorogobuzh"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "yelnya",
+        "dorogobuzh"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "yelnya",
+        "roslavl"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "roslavl",
+        "bryansk"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "bryansk",
+        "kaluga"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "bryansk",
+        "tula"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "dorogobuzh",
+        "vyazma"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "vyazma",
+        "gzhatsk"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "vyazma",
+        "yukhnov"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "vyazma",
+        "sychevka"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "sychevka",
+        "rzhev"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "rzhev",
+        "kalinin"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "rzhev",
+        "volokolamsk"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "kalinin",
+        "klin"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "klin",
+        "moscow"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "gzhatsk",
+        "mozhaisk"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "mozhaisk",
+        "moscow"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "volokolamsk",
+        "klin"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "volokolamsk",
+        "mozhaisk"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "volokolamsk",
+        "moscow"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "yukhnov",
+        "kaluga"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "yukhnov",
+        "maloyaroslavets"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "kaluga",
+        "maloyaroslavets"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "kaluga",
+        "serpukhov"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "maloyaroslavets",
+        "naro_fominsk"
+      ],
+      "road": "minor",
+      "rail": false
+    },
+    {
+      "between": [
+        "naro_fominsk",
+        "moscow"
+      ],
+      "road": "minor",
+      "rail": true
+    },
+    {
+      "between": [
+        "serpukhov",
+        "tula"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "serpukhov",
+        "moscow"
+      ],
+      "road": "highway",
+      "rail": true
+    },
+    {
+      "between": [
+        "tula",
+        "moscow"
+      ],
+      "road": "highway",
+      "rail": true
+    }
   ]
 }

@@ -21,7 +21,7 @@ import httpx
 from commanders.briefing import build_briefing
 from commanders.dossier import Dossier
 from commanders.prompts import ORDER_SCHEMA, build_system_prompt
-from engine.orders import CommanderOrders, fallback_orders, validate_orders
+from engine.orders import CommanderOrders, fallback_orders, salvage_orders, validate_orders
 from engine.state import GameState
 
 DEFAULT_BASE_URL = "http://localhost:1234/v1"
@@ -58,6 +58,7 @@ class LMStudioClient:
         transcript: dict = {"commander": dossier.id, "turn": state.turn, "attempts": []}
 
         result: CommanderOrders | None = None
+        last_parsed: CommanderOrders | None = None
         outcome = "fallback"
         for attempt in (1, 2):
             request_payload = self._payload(messages)
@@ -67,6 +68,7 @@ class LMStudioClient:
 
             orders, problems = self._parse(content, dossier.id)
             if orders is not None:
+                last_parsed = orders
                 problems = validate_orders(orders, state.game_map, corps_list, state.control)
             if orders is not None and not problems:
                 result = orders
@@ -85,6 +87,9 @@ class LMStudioClient:
                     }
                 )
 
+        if result is None and last_parsed is not None:
+            result = salvage_orders(last_parsed, state.game_map, corps_list, state.control)
+            outcome = "salvaged"
         if result is None:
             result = fallback_orders(dossier.id, corps_list)
         transcript["outcome"] = outcome

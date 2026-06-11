@@ -56,6 +56,37 @@ class CommanderOrders:
         )
 
 
+def _order_errors(
+    order: CorpsOrder,
+    commander: str,
+    by_id: dict[str, Corps],
+    game_map: GameMap,
+    control: dict[str, str],
+) -> list[str]:
+    corps = by_id.get(order.corps_id)
+    if corps is None:
+        return [f"unknown corps: {order.corps_id}"]
+    if corps.commander != commander:
+        return [f"{order.corps_id} is not under {commander}'s command"]
+    if order.posture not in POSTURES:
+        return [f"{order.corps_id}: unknown posture '{order.posture}' (use one of {POSTURES})"]
+    if order.posture in ("attack", "advance"):
+        if order.objective is None:
+            return [f"{order.corps_id}: posture '{order.posture}' needs an objective"]
+        if order.objective not in game_map.regions:
+            return [f"{order.corps_id}: unknown region '{order.objective}'"]
+        enemy_held = {r for r, side in control.items() if side != corps.side}
+        in_range = reachable(
+            game_map, corps.location, movement_points(corps), blocked=enemy_held
+        )
+        if order.objective != corps.location and order.objective not in in_range:
+            return [
+                f"{order.corps_id}: objective '{order.objective}' is out of reach "
+                f"this turn from {corps.location}"
+            ]
+    return []
+
+
 def validate_orders(
     orders: CommanderOrders,
     game_map: GameMap,
@@ -72,35 +103,39 @@ def validate_orders(
     for corps_id in sorted(unordered):
         errors.append(f"no order given for {corps_id}; every corps needs an order")
     for order in orders.orders:
-        corps = by_id.get(order.corps_id)
-        if corps is None:
-            errors.append(f"unknown corps: {order.corps_id}")
-            continue
-        if corps.commander != orders.commander:
-            errors.append(f"{order.corps_id} is not under {orders.commander}'s command")
-            continue
-        if order.posture not in POSTURES:
-            errors.append(
-                f"{order.corps_id}: unknown posture '{order.posture}' (use one of {POSTURES})"
-            )
-            continue
-        if order.posture in ("attack", "advance"):
-            if order.objective is None:
-                errors.append(f"{order.corps_id}: posture '{order.posture}' needs an objective")
-                continue
-            if order.objective not in game_map.regions:
-                errors.append(f"{order.corps_id}: unknown region '{order.objective}'")
-                continue
-            enemy_held = {r for r, side in control.items() if side != corps.side}
-            in_range = reachable(
-                game_map, corps.location, movement_points(corps), blocked=enemy_held
-            )
-            if order.objective != corps.location and order.objective not in in_range:
-                errors.append(
-                    f"{order.corps_id}: objective '{order.objective}' is out of reach "
-                    f"this turn from {corps.location}"
-                )
+        errors.extend(_order_errors(order, orders.commander, by_id, game_map, control))
     return errors
+
+
+def salvage_orders(
+    orders: CommanderOrders,
+    game_map: GameMap,
+    corps_list: list[Corps],
+    control: dict[str, str],
+) -> CommanderOrders:
+    """Best-effort repair: keep individually valid orders, defuse the rest to
+    'defend', and fill in any corps that got no order. The dispatch survives,
+    so a commander's voice isn't lost to one bad objective."""
+    by_id = {c.id: c for c in corps_list}
+    own_living = {
+        c.id for c in corps_list if c.commander == orders.commander and not c.is_destroyed
+    }
+    salvaged: dict[str, CorpsOrder] = {}
+    for order in orders.orders:
+        if order.corps_id not in own_living or order.corps_id in salvaged:
+            continue
+        if _order_errors(order, orders.commander, by_id, game_map, control):
+            salvaged[order.corps_id] = CorpsOrder(order.corps_id, "defend", None)
+        else:
+            salvaged[order.corps_id] = order
+    for corps_id in own_living - set(salvaged):
+        salvaged[corps_id] = CorpsOrder(corps_id, "defend", None)
+    return CommanderOrders(
+        commander=orders.commander,
+        orders=[salvaged[cid] for cid in sorted(salvaged)],
+        dispatch=orders.dispatch,
+        reasoning=orders.reasoning,
+    )
 
 
 def fallback_orders(commander: str, corps_list: list[Corps]) -> CommanderOrders:

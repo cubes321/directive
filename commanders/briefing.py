@@ -97,4 +97,12 @@ def build_briefing(state: GameState, commander: str) -> str:
         lines.append(f"For {corps.name} [{corps.id}]:")
         for option in _staff_options(state, corps, contacts):
             lines.append(f"  * {option}")
+        enemy_held = {r for r, s in state.control.items() if s != corps.side}
+        in_range = reachable(
+            state.game_map, corps.location, movement_points(corps), blocked=enemy_held
+        )
+        lines.append(
+            "  In range this week: "
+            + (", ".join(_region_label(state, r) for r in sorted(in_range)) or "(nowhere)")
+        )
     return "\n".join(lines)

@@ -126,6 +126,29 @@ def test_fallback_orders_defend_in_place_for_all_own_corps():
     assert all(o.posture == "defend" for o in fb.orders)
 
 
+def test_salvage_keeps_valid_orders_and_fills_the_rest():
+    from engine.orders import salvage_orders
+
+    game_map, corps, control = setup()
+    orders = CommanderOrders(
+        commander="guderian",
+        orders=[
+            CorpsOrder(corps_id="xxiv_pz", posture="attack", objective="minsk"),  # valid
+            CorpsOrder(corps_id="xlvi_pz", posture="attack", objective="atlantis"),  # bad region
+            # xlvii missing entirely -> should be filled with defend
+        ],
+        dispatch="Forward to Minsk!",
+    )
+    corps.append(make_corps("xlvii_pz", location="brest"))
+    salvaged = salvage_orders(orders, game_map, corps, control)
+    assert validate_orders(salvaged, game_map, corps, control) == []
+    by_id = {o.corps_id: o for o in salvaged.orders}
+    assert by_id["xxiv_pz"].objective == "minsk"  # the good order survived
+    assert by_id["xlvi_pz"].posture == "defend"  # the bad one was defused
+    assert by_id["xlvii_pz"].posture == "defend"  # the missing one was filled
+    assert salvaged.dispatch == "Forward to Minsk!"  # personality preserved
+
+
 def test_orders_serialization_round_trip():
     orders = CommanderOrders(
         commander="guderian",

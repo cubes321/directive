@@ -1,0 +1,71 @@
+import httpx
+import pytest
+
+from server.app import app, get_session
+
+
+@pytest.fixture
+async def api(tmp_path):
+    session = get_session()
+    session.reset(save_path=tmp_path / "campaign.json", use_llm=False)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+
+async def test_new_game_returns_snapshot(api):
+    r = await api.post("/api/game/new")
+    assert r.status_code == 200
+    snap = r.json()
+    assert snap["turn"] == 1
+    assert snap["date"] == "1941-06-22"
+    assert snap["political_capital"] == 10
+    assert any(reg["id"] == "moscow" for reg in snap["regions"])
+    assert all("x" in reg and "y" in reg for reg in snap["regions"])
+    # player sees own corps, not soviet internals
+    own_sides = {c["commander"] for c in snap["corps"]}
+    assert "guderian" in own_sides
+    assert not any(c["id"].startswith("sov_") for c in snap["corps"])
+
+
+async def test_directives_are_stored(api):
+    await api.post("/api/game/new")
+    r = await api.post("/api/game/directives", json={"guderian": "Take Minsk."})
+    assert r.status_code == 200
+    snap = (await api.get("/api/game")).json()
+    assert snap["directives"]["guderian"] == "Take Minsk."
+
+
+async def test_end_turn_advances_and_returns_dispatches(api):
+    await api.post("/api/game/new")
+    r = await api.post("/api/game/end-turn")
+    assert r.status_code == 200
+    snap = r.json()
+    assert snap["turn"] == 2
+    assert snap["dispatches"]
+    assert snap["last_report"] is not None
+
+
+async def test_dismiss_endpoint_validates(api):
+    await api.post("/api/game/new")
+    bad = await api.post("/api/game/dismiss", json={"commander": "guderian", "replacement": "hoth"})
+    assert bad.status_code == 400
+    good = await api.post("/api/game/dismiss", json={"commander": "guderian", "replacement": "schmidt"})
+    assert good.status_code == 200
+    assert good.json()["political_capital"] < 10
+
+
+async def test_briefing_endpoint(api):
+    await api.post("/api/game/new")
+    r = await api.get("/api/game/briefing/guderian")
+    assert r.status_code == 200
+    assert "SITUATION BRIEFING" in r.json()["briefing"]
+
+
+async def test_game_state_persists_across_session_reload(api, tmp_path):
+    await api.post("/api/game/new")
+    await api.post("/api/game/end-turn")
+    session = get_session()
+    session.reload()
+    snap = (await api.get("/api/game")).json()
+    assert snap["turn"] == 2

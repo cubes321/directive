@@ -65,6 +65,54 @@
       "bio": "A hard, ambitious ex-political commissar turned field commander, Konev drives his armies the way he drives himself - without mercy. He is quick to attack, quick to assign blame, and acutely conscious of his rivalry with Zhukov. His defenses are aggressive, full of local counterattacks; his retreats are late. Stalin values him because his front always fights."
     },
     {
+      "id": "schmidt",
+      "name": "General der Panzertruppe Rudolf Schmidt",
+      "side": "axis",
+      "role": "(awaiting command)",
+      "traits": {"aggression": 6, "caution": 5, "initiative": 6, "logistics": 6, "ego": 4},
+      "bio": "A capable, level-headed panzer general who led XXXIX Corps with distinction in France and Russia. Schmidt combines genuine armored-warfare instincts with more patience than the famous panzer prima donnas; he attacks hard but keeps his neighbors and his fuel state in view. Widely seen as the natural understudy for an army-level command."
+    },
+    {
+      "id": "reinhardt",
+      "name": "General der Panzertruppe Georg-Hans Reinhardt",
+      "side": "axis",
+      "role": "(awaiting command)",
+      "traits": {"aggression": 7, "caution": 4, "initiative": 6, "logistics": 5, "ego": 5},
+      "bio": "An energetic Saxon panzer commander whose corps stormed the Dvina crossings. Reinhardt is quick, decisive and comfortable operating deep in the enemy's rear, though without Guderian's flair for public insubordination. He drives subordinates hard and expects his orders executed at the double."
+    },
+    {
+      "id": "model",
+      "name": "General der Panzertruppe Walter Model",
+      "side": "axis",
+      "role": "(awaiting command)",
+      "traits": {"aggression": 7, "caution": 5, "initiative": 8, "logistics": 7, "ego": 7},
+      "bio": "A short, abrasive, monocled workaholic with a genius for improvisation. Model is junior for army command but nobody doubts he will get one: he turns up at the point of crisis, strips rear echelons for riflemen, and conjures defenses out of nothing. Abrasive with staff, indifferent to comfort, utterly tireless. The troops call him the lion of the defense; his staff call him other things."
+    },
+    {
+      "id": "yeremenko",
+      "name": "General-polkovnik Andrei Yeremenko",
+      "side": "soviet",
+      "role": "(awaiting command)",
+      "traits": {"aggression": 7, "caution": 3, "initiative": 5, "logistics": 4, "ego": 6},
+      "bio": "A tough, boastful cavalryman who promised Stalin he would smash 'the scoundrel Guderian'. Yeremenko is personally fearless, frequently wounded at the front, and addicted to the immediate counterattack whether or not the means exist. His fronts fight hard and bleed hard."
+    },
+    {
+      "id": "rokossovsky",
+      "name": "General-leytenant Konstantin Rokossovsky",
+      "side": "soviet",
+      "role": "(awaiting command)",
+      "traits": {"aggression": 6, "caution": 5, "initiative": 7, "logistics": 6, "ego": 4},
+      "bio": "Arrested and tortured in the purges, restored to command in 1940, and already the most composed operational mind on the Western Front. Rokossovsky is calm under catastrophe, husbands his men, improvises mobile groups from fragments, and tells superiors the truth politely but immovably. Soldiers trust him; staffs function around him."
+    },
+    {
+      "id": "vatutin",
+      "name": "General-leytenant Nikolai Vatutin",
+      "side": "soviet",
+      "role": "(awaiting command)",
+      "traits": {"aggression": 8, "caution": 3, "initiative": 7, "logistics": 5, "ego": 5},
+      "bio": "A brilliant young staff officer with a planner's mind and a gambler's heart, desperate to trade the map table for a field command. Vatutin designs bold, deep, double-envelopment operations and drives them with infectious energy - sometimes past what his exhausted armies can actually deliver."
+    },
+    {
       "id": "zhukov",
       "name": "General armii Georgi Zhukov",
       "side": "soviet",
