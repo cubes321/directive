@@ -11,6 +11,7 @@ import heapq
 
 from engine.map import GameMap
 from engine.units import Corps
+from engine.weather import MOVEMENT_FACTOR
 
 BASE_MP = {"panzer": 6, "motorized": 6, "infantry": 4}
 ROAD_COST = {"highway": 2, "minor": 3, "none": 4}
@@ -18,8 +19,8 @@ TERRAIN_PENALTY = {"marsh": 2, "forest": 1}
 LOW_SUPPLY_THRESHOLD = 25
 
 
-def movement_points(corps: Corps) -> int:
-    mp = BASE_MP[corps.kind]
+def movement_points(corps: Corps, weather: str = "clear") -> int:
+    mp = int(BASE_MP[corps.kind] * MOVEMENT_FACTOR.get(weather, 1.0))
     if corps.supply < LOW_SUPPLY_THRESHOLD:
         mp //= 2
     return mp

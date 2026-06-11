@@ -67,9 +67,12 @@ async function boot() {
 
 /* ── header ──────────────────────────────────────── */
 
+const WEATHER_LABEL = { clear: "CLEAR", mud: "MUD ◆ RASPUTITSA", snow: "SNOW ❄" };
+
 function renderHeader() {
   $("#hud-date").textContent = snap.date;
   $("#hud-turn").textContent = String(snap.turn).padStart(2, "0");
+  $("#hud-weather").textContent = WEATHER_LABEL[snap.weather] || snap.weather.toUpperCase();
   const cap = snap.political_capital;
   $("#hud-capital").textContent =
     "▰".repeat(Math.max(0, Math.min(10, cap))) +
@@ -403,12 +406,26 @@ async function endTurn() {
 
 /* ── wiring ──────────────────────────────────────── */
 
+function renderVerdict() {
+  const v = snap.victory;
+  $("#verdict").classList.toggle("hidden", !v);
+  $("#btn-endturn").disabled = !!v;
+  if (!v) return;
+  $("#verdict-kind").textContent = `${v.kind.toUpperCase()} VICTORY — ${snap.date}`;
+  const title = $("#verdict-title");
+  title.textContent = v.winner === "axis" ? "MOSCOW BECKONS NO MORE" : "THE FRONT HELD";
+  if (v.winner === "axis" && v.kind === "decisive") title.textContent = "MOSCOW HAS FALLEN";
+  title.className = "verdict-title " + v.winner;
+  $("#verdict-reason").textContent = v.reason;
+}
+
 function renderAll() {
   renderHeader();
   renderMap();
   renderDispatches();
   renderCommanders();
   renderBattles();
+  renderVerdict();
 }
 
 document.querySelectorAll(".tab").forEach((tab) => {
@@ -421,6 +438,15 @@ document.querySelectorAll(".tab").forEach((tab) => {
 });
 
 $("#btn-endturn").addEventListener("click", endTurn);
+$("#btn-verdict-new").addEventListener("click", async () => {
+  try {
+    snap = await api("/api/game/new", { method: "POST" });
+    renderAll();
+    toast("New campaign begun.", true);
+  } catch (e) {
+    toast(e.message);
+  }
+});
 $("#btn-new").addEventListener("click", async () => {
   if (!confirm("Abandon the current campaign and start over from 22 June 1941?")) return;
   try {

@@ -45,7 +45,9 @@ def _contact_line(state: GameState, region_id: str, reports: list[dict]) -> str:
 def _staff_options(state: GameState, corps, contacts: dict[str, list[dict]]) -> list[str]:
     options: list[str] = []
     enemy_held = {r for r, side in state.control.items() if side != corps.side}
-    in_range = reachable(state.game_map, corps.location, movement_points(corps), blocked=enemy_held)
+    in_range = reachable(
+        state.game_map, corps.location, movement_points(corps, state.weather), blocked=enemy_held
+    )
     # attacks on spotted enemies first, then forward moves into enemy ground
     for region_id in sorted(in_range, key=lambda r: (r not in contacts, in_range[r])):
         if len(options) >= MAX_OPTIONS_PER_CORPS - 1:
@@ -75,8 +77,12 @@ def build_briefing(state: GameState, commander: str) -> str:
     )
 
     lines: list[str] = []
+    weather_note = {
+        "mud": " The rasputitsa: roads are swamps, movement is halved and attacks flounder.",
+        "snow": " Deep winter: movement is slow and unwinterized troops fight at a severe disadvantage.",
+    }.get(state.weather, "")
     lines.append(f"SITUATION BRIEFING - {state.date.isoformat()} (turn {state.turn})")
-    lines.append(f"Weather: {state.weather}.")
+    lines.append(f"Weather: {state.weather}.{weather_note}")
     lines.append("")
     lines.append("THEATER DIRECTIVE FROM YOUR COMMANDER:")
     lines.append(f'"{directive}"')
@@ -99,7 +105,7 @@ def build_briefing(state: GameState, commander: str) -> str:
             lines.append(f"  * {option}")
         enemy_held = {r for r, s in state.control.items() if s != corps.side}
         in_range = reachable(
-            state.game_map, corps.location, movement_points(corps), blocked=enemy_held
+            state.game_map, corps.location, movement_points(corps, state.weather), blocked=enemy_held
         )
         lines.append(
             "  In range this week: "

@@ -62,6 +62,7 @@ def _order_errors(
     by_id: dict[str, Corps],
     game_map: GameMap,
     control: dict[str, str],
+    weather: str = "clear",
 ) -> list[str]:
     corps = by_id.get(order.corps_id)
     if corps is None:
@@ -77,7 +78,7 @@ def _order_errors(
             return [f"{order.corps_id}: unknown region '{order.objective}'"]
         enemy_held = {r for r, side in control.items() if side != corps.side}
         in_range = reachable(
-            game_map, corps.location, movement_points(corps), blocked=enemy_held
+            game_map, corps.location, movement_points(corps, weather), blocked=enemy_held
         )
         if order.objective != corps.location and order.objective not in in_range:
             return [
@@ -92,6 +93,7 @@ def validate_orders(
     game_map: GameMap,
     corps_list: list[Corps],
     control: dict[str, str],
+    weather: str = "clear",
 ) -> list[str]:
     """Empty list means valid. Each error is phrased for an LLM repair prompt."""
     errors: list[str] = []
@@ -103,7 +105,9 @@ def validate_orders(
     for corps_id in sorted(unordered):
         errors.append(f"no order given for {corps_id}; every corps needs an order")
     for order in orders.orders:
-        errors.extend(_order_errors(order, orders.commander, by_id, game_map, control))
+        errors.extend(
+            _order_errors(order, orders.commander, by_id, game_map, control, weather)
+        )
     return errors
 
 
@@ -112,6 +116,7 @@ def salvage_orders(
     game_map: GameMap,
     corps_list: list[Corps],
     control: dict[str, str],
+    weather: str = "clear",
 ) -> CommanderOrders:
     """Best-effort repair: keep individually valid orders, defuse the rest to
     'defend', and fill in any corps that got no order. The dispatch survives,
@@ -124,7 +129,7 @@ def salvage_orders(
     for order in orders.orders:
         if order.corps_id not in own_living or order.corps_id in salvaged:
             continue
-        if _order_errors(order, orders.commander, by_id, game_map, control):
+        if _order_errors(order, orders.commander, by_id, game_map, control, weather):
             salvaged[order.corps_id] = CorpsOrder(order.corps_id, "defend", None)
         else:
             salvaged[order.corps_id] = order

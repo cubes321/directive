@@ -28,6 +28,7 @@ class GameState:
     weather: str = "clear"
     directives: dict[str, str] = field(default_factory=dict)  # commander -> text
     dispatches: list[dict] = field(default_factory=list)  # {turn, commander, text}
+    reinforcements: list[dict] = field(default_factory=list)  # {turn, corps: {...}}
 
     @property
     def date(self) -> datetime.date:
@@ -55,6 +56,7 @@ class GameState:
             weather=data.get("weather", "clear"),
             directives=dict(data.get("directives", {})),
             dispatches=list(data.get("dispatches", [])),
+            reinforcements=list(data.get("reinforcements", [])),
         )
 
     def to_dict(self) -> dict:
@@ -68,4 +70,5 @@ class GameState:
             "weather": self.weather,
             "directives": dict(self.directives),
             "dispatches": list(self.dispatches),
+            "reinforcements": list(self.reinforcements),
         }

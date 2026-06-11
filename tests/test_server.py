@@ -74,6 +74,19 @@ async def test_snapshot_survives_save_with_stale_map_data(api):
     assert isinstance(moscow["x"], (int, float))
 
 
+async def test_snapshot_reports_weather_and_victory(api):
+    await api.post("/api/game/new")
+    snap = (await api.get("/api/game")).json()
+    assert snap["weather"] == "clear"
+    assert snap["victory"] is None
+    session = get_session()
+    session.campaign.state.control["moscow"] = "axis"
+    snap = (await api.get("/api/game")).json()
+    assert snap["victory"]["winner"] == "axis"
+    r = await api.post("/api/game/end-turn")
+    assert r.status_code == 409
+
+
 async def test_game_state_persists_across_session_reload(api, tmp_path):
     await api.post("/api/game/new")
     await api.post("/api/game/end-turn")

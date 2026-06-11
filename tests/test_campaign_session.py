@@ -77,6 +77,20 @@ async def test_save_and_load_round_trip(tmp_path):
     assert loaded.dossiers["guderian"].track_record == campaign.dossiers["guderian"].track_record
 
 
+async def test_taking_moscow_ends_the_game():
+    campaign = make_campaign()
+    # stage guderian's panzers at the gates with the garrison destroyed
+    for cid in ("xxiv_pz", "xlvi_pz", "xlvii_pz"):
+        campaign.state.corps[cid].location = "mozhaisk"
+    campaign.state.control["mozhaisk"] = "axis"
+    campaign.state.corps["sov_49a"].take_losses(strength=100)
+    result = await campaign.play_turn({})
+    assert result.victory is not None
+    assert result.victory["winner"] == "axis"
+    with pytest.raises(ValueError, match="over"):
+        await campaign.play_turn({})
+
+
 def test_dismissal_costs_political_capital_and_reassigns_corps():
     campaign = Campaign.new(DATA_DIR)
     cost = campaign.dismiss("guderian", "schmidt")

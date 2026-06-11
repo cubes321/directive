@@ -333,4 +333,26 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 #toast.ok { background: #2f4b2a; border-color: #1d3318; color: #dceed6; }
 
+#verdict {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(10, 9, 5, .88);
+  display: flex; align-items: center; justify-content: center;
+}
+.verdict-card {
+  text-align: center; padding: 48px 70px; max-width: 640px;
+  background: var(--bone); color: var(--ink);
+  border: 4px double #8d8264;
+  box-shadow: 0 40px 100px rgba(0,0,0,.9);
+}
+.verdict-kind {
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 4px; color: #7a6b49;
+}
+.verdict-title {
+  font-family: var(--font-display); font-size: 44px; letter-spacing: 5px; margin: 6px 0 10px;
+}
+.verdict-title.axis { color: var(--own-deep); }
+.verdict-title.soviet { color: var(--enemy-deep); }
+.verdict-reason { font-family: var(--font-type); font-size: 14px; line-height: 1.6; margin-bottom: 22px; }
+.verdict-card .ghost-btn { color: var(--ink); border-color: #8d8264; }
+
 .hidden { display: none !important; }

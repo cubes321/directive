@@ -69,7 +69,9 @@ class LMStudioClient:
             orders, problems = self._parse(content, dossier.id)
             if orders is not None:
                 last_parsed = orders
-                problems = validate_orders(orders, state.game_map, corps_list, state.control)
+                problems = validate_orders(
+                    orders, state.game_map, corps_list, state.control, state.weather
+                )
             if orders is not None and not problems:
                 result = orders
                 outcome = "ok" if attempt == 1 else "repaired"
@@ -88,7 +90,9 @@ class LMStudioClient:
                 )
 
         if result is None and last_parsed is not None:
-            result = salvage_orders(last_parsed, state.game_map, corps_list, state.control)
+            result = salvage_orders(
+                last_parsed, state.game_map, corps_list, state.control, state.weather
+            )
             outcome = "salvaged"
         if result is None:
             result = fallback_orders(dossier.id, corps_list)

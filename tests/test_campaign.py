@@ -49,5 +49,6 @@ def test_war_is_costly_for_both_sides():
 
 def test_no_corps_vanish_and_state_round_trips():
     state = play_campaign()
-    assert len(state.corps) == 30
+    assert len(state.corps) >= 30  # original 30 plus any arrived reinforcements
+    assert "xxiv_pz" in state.corps and "sov_49a" in state.corps
     assert GameState.from_dict(state.to_dict()).to_dict() == state.to_dict()

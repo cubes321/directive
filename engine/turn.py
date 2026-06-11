@@ -30,6 +30,7 @@ from engine.orders import CommanderOrders
 from engine.state import GameState
 from engine.supply import compute_supply
 from engine.units import Corps
+from engine.weather import weather_for_turn
 
 STACKING_LIMIT = 3
 RESERVE_ORG_RECOVERY = 20
@@ -55,7 +56,10 @@ def _distribute_losses(corps_list: list[Corps], strength: int, organization: int
 
 def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> TurnReport:
     report = TurnReport(turn=state.turn)
+    state.weather = weather_for_turn(state.turn)
     rng = random.Random(state.seed * 1000 + state.turn)
+
+    _arrive_reinforcements(state, report)
 
     postures: dict[str, str] = {}
     destinations: dict[str, str] = {}
@@ -106,7 +110,9 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
                     state.control[region] = corps.side
             continue
         terrain = state.game_map.regions[region].terrain
-        result = resolve_combat(attackers, defenders, terrain=terrain, rng=rng)
+        result = resolve_combat(
+            attackers, defenders, terrain=terrain, rng=rng, weather=state.weather
+        )
         fought.update(c.id for c in attackers + defenders)
 
         _distribute_losses(attackers, result.attacker_losses, result.attacker_org_losses)
@@ -167,6 +173,28 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
 
     state.turn += 1
     return report
+
+
+def _arrive_reinforcements(state: GameState, report: TurnReport) -> None:
+    """Spawn scheduled corps whose railhead is still friendly and has room;
+    anything blocked stays pending and is retried next turn."""
+    still_pending = []
+    for entry in state.reinforcements:
+        corps_data = entry["corps"]
+        side, location = corps_data["side"], corps_data["location"]
+        occupants = [c for c in state.corps_at(location) if not c.is_destroyed]
+        arrivable = (
+            entry["turn"] <= state.turn
+            and state.control.get(location) == side
+            and len(occupants) < STACKING_LIMIT
+        )
+        if arrivable:
+            corps = Corps.from_dict(corps_data)
+            state.corps[corps.id] = corps
+            report.movements.append({"corps": corps.id, "to": location, "arrived": True})
+        else:
+            still_pending.append(entry)
+    state.reinforcements = still_pending
 
 
 def _retreat_region(state: GameState, region: str, side: str) -> str | None:

@@ -3,6 +3,14 @@
     "axis": ["warsaw", "suwalki"],
     "soviet": ["moscow", "gomel"]
   },
+  "reinforcements": [
+    {"turn": 8, "corps": {"id": "sov_30a", "name": "30th Army", "side": "soviet", "kind": "infantry", "location": "vyazma", "commander": "konev", "strength": 80, "organization": 70, "experience": 30}},
+    {"turn": 11, "corps": {"id": "sov_31a", "name": "31st Army", "side": "soviet", "kind": "infantry", "location": "kaluga", "commander": "zhukov", "strength": 80, "organization": 70, "experience": 30}},
+    {"turn": 14, "corps": {"id": "sov_1sh", "name": "1st Shock Army", "side": "soviet", "kind": "infantry", "location": "klin", "commander": "zhukov", "strength": 100, "organization": 90, "experience": 50}},
+    {"turn": 16, "corps": {"id": "sov_sib1", "name": "Siberian Group Lukin", "side": "soviet", "kind": "infantry", "location": "moscow", "commander": "zhukov", "strength": 100, "organization": 95, "experience": 65}},
+    {"turn": 18, "corps": {"id": "sov_sib2", "name": "Siberian Group Belov", "side": "soviet", "kind": "infantry", "location": "tula", "commander": "zhukov", "strength": 100, "organization": 95, "experience": 65}},
+    {"turn": 20, "corps": {"id": "sov_sib3", "name": "Siberian Group Kuznetsov", "side": "soviet", "kind": "infantry", "location": "kalinin", "commander": "konev", "strength": 100, "organization": 95, "experience": 65}}
+  ],
   "corps": [
     {"id": "xxiv_pz", "name": "XXIV Panzer Corps", "side": "axis", "kind": "panzer", "location": "brest", "commander": "guderian", "experience": 75},
     {"id": "xlvi_pz", "name": "XLVI Panzer Corps", "side": "axis", "kind": "panzer", "location": "brest", "commander": "guderian", "experience": 70},

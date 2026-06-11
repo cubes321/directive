@@ -10,6 +10,7 @@ import random
 from dataclasses import dataclass
 
 from engine.units import Corps
+from engine.weather import combat_factor
 
 KIND_MULTIPLIER = {"panzer": 1.5, "motorized": 1.2, "infantry": 1.0}
 TERRAIN_DEFENSE = {"urban": 1.5, "forest": 1.3, "marsh": 1.4, "river_line": 1.4, "clear": 1.0}
@@ -44,9 +45,14 @@ def resolve_combat(
     defenders: list[Corps],
     terrain: str,
     rng: random.Random,
+    weather: str = "clear",
 ) -> CombatResult:
-    attack = sum(combat_power(c) for c in attackers)
-    defense = sum(combat_power(c) for c in defenders) * TERRAIN_DEFENSE.get(terrain, 1.0)
+    attack = sum(combat_power(c) for c in attackers) * combat_factor(weather, attackers[0].side)
+    defense = (
+        sum(combat_power(c) for c in defenders)
+        * TERRAIN_DEFENSE.get(terrain, 1.0)
+        * combat_factor(weather, defenders[0].side)
+    )
     odds = attack / max(defense, 1.0)
     effective = odds * rng.uniform(0.8, 1.2)
 

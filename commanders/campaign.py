@@ -26,6 +26,7 @@ from commanders.scripted import scripted_orders
 from engine.scenario import load_scenario
 from engine.state import GameState
 from engine.turn import TurnReport, resolve_turn
+from engine.victory import check_victory
 
 STARTING_POLITICAL_CAPITAL = 10
 DISMISSAL_BASE_COST = 2
@@ -36,6 +37,7 @@ BENCH_ROLE = "(awaiting command)"
 class TurnResult:
     report: TurnReport
     dispatches: list[dict]
+    victory: dict | None = None
 
 
 @dataclass
@@ -71,6 +73,8 @@ class Campaign:
         )
 
     async def play_turn(self, player_directives: dict[str, str]) -> TurnResult:
+        if check_victory(self.state) is not None:
+            raise ValueError("the campaign is over")
         self.state.directives.update(player_directives)
         self.state.directives.update(soviet_directives(self.state))
 
@@ -98,7 +102,9 @@ class Campaign:
 
         report = resolve_turn(self.state, all_orders)
         update_track_records(self.state, report, self.dossiers)
-        return TurnResult(report=report, dispatches=dispatches)
+        return TurnResult(
+            report=report, dispatches=dispatches, victory=check_victory(self.state)
+        )
 
     def dismissal_cost(self, commander_id: str) -> int:
         return DISMISSAL_BASE_COST + self.dossiers[commander_id].traits.get("ego", 5) // 3

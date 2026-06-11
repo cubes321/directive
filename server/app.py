@@ -19,6 +19,7 @@ from commanders.campaign import Campaign
 from commanders.llm import LMStudioClient, LMStudioUnavailable
 from engine.fog import visible_enemy_contacts
 from engine.turn import TurnReport
+from engine.victory import check_victory
 
 ROOT = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data"
@@ -167,6 +168,7 @@ def snapshot(session: Session) -> dict:
         },
         "dispatches": dispatches,
         "last_report": _report_dict(session.last_report),
+        "victory": check_victory(state),
     }
 
 
@@ -197,6 +199,8 @@ async def set_directives(directives: dict[str, str]):
 async def end_turn():
     session = get_session()
     campaign = session.require_campaign()
+    if check_victory(campaign.state) is not None:
+        raise HTTPException(409, "the campaign is over")
     try:
         result = await campaign.play_turn({})
     except LMStudioUnavailable as e:

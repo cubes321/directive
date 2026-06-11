@@ -57,7 +57,7 @@ def scripted_orders(
 
         enemy_held = {r for r, side in state.control.items() if side != corps.side}
         in_range = reachable(
-            state.game_map, corps.location, movement_points(corps), blocked=enemy_held
+            state.game_map, corps.location, movement_points(corps, state.weather), blocked=enemy_held
         )
         candidates = sorted(
             (

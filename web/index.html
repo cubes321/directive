@@ -26,6 +26,10 @@
     <span class="value" id="hud-turn">—</span>
   </div>
   <div class="status-block">
+    <span class="label">WEATHER</span>
+    <span class="value" id="hud-weather">—</span>
+  </div>
+  <div class="status-block">
     <span class="label">STANDING WITH OKH</span>
     <span class="value capital" id="hud-capital">—</span>
   </div>
@@ -78,6 +82,15 @@
 </div>
 
 <div id="toast" class="hidden"></div>
+
+<div id="verdict" class="hidden">
+  <div class="verdict-card">
+    <div class="verdict-kind" id="verdict-kind"></div>
+    <div class="verdict-title" id="verdict-title"></div>
+    <div class="verdict-reason" id="verdict-reason"></div>
+    <button id="btn-verdict-new" class="ghost-btn">BEGIN A NEW CAMPAIGN</button>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

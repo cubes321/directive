@@ -31,5 +31,6 @@ def load_scenario(data_dir: Path, seed: int = DEFAULT_SEED) -> GameState:
             "supply_sources": oob["supply_sources"],
             "turn": 1,
             "seed": seed,
+            "reinforcements": oob.get("reinforcements", []),
         }
     )
