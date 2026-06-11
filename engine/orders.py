@@ -65,6 +65,12 @@ def validate_orders(
     """Empty list means valid. Each error is phrased for an LLM repair prompt."""
     errors: list[str] = []
     by_id = {c.id: c for c in corps_list}
+    own_living = {
+        c.id for c in corps_list if c.commander == orders.commander and not c.is_destroyed
+    }
+    unordered = own_living - {o.corps_id for o in orders.orders}
+    for corps_id in sorted(unordered):
+        errors.append(f"no order given for {corps_id}; every corps needs an order")
     for order in orders.orders:
         corps = by_id.get(order.corps_id)
         if corps is None:

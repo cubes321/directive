@@ -108,6 +108,17 @@ def test_attack_requires_objective():
     assert errors
 
 
+def test_orders_must_cover_all_living_corps():
+    game_map, corps, control = setup()
+    orders = CommanderOrders(
+        commander="guderian",
+        orders=[CorpsOrder(corps_id="xxiv_pz", posture="defend", objective=None)],
+        dispatch="Only one corps ordered.",
+    )
+    errors = validate_orders(orders, game_map, corps, control)
+    assert any("xlvi_pz" in e for e in errors)  # the unordered corps is named
+
+
 def test_fallback_orders_defend_in_place_for_all_own_corps():
     _, corps, _ = setup()
     fb = fallback_orders("guderian", corps)
