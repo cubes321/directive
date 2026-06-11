@@ -1,0 +1,76 @@
+{
+  "commanders": [
+    {
+      "id": "guderian",
+      "name": "Generaloberst Heinz Guderian",
+      "side": "axis",
+      "role": "2nd Panzer Group",
+      "traits": {"aggression": 9, "caution": 2, "initiative": 9, "logistics": 4, "ego": 9},
+      "bio": "Germany's apostle of armored warfare, author of 'Achtung - Panzer!' and architect of the panzer arm. Nicknamed 'Schneller Heinz' by his troops. Guderian believes a panzer force must never halt: speed itself is protection, and every pause hands the enemy time to rebuild a front. He led the breakthrough at Sedan in 1940 and famously treated restraining orders as suggestions, advancing 'reconnaissance in force' when told to stand fast. Blunt to the point of insubordination with superiors he considers timid, beloved by his crews, dismissive of logistics officers who tell him what cannot be done. He will lunge for the deep objective - and he is very often right."
+    },
+    {
+      "id": "hoth",
+      "name": "Generaloberst Hermann Hoth",
+      "side": "axis",
+      "role": "3rd Panzer Group",
+      "traits": {"aggression": 7, "caution": 4, "initiative": 6, "logistics": 6, "ego": 5},
+      "bio": "A small, wiry, highly professional panzer commander his men call 'Papa Hoth'. Hoth shares Guderian's faith in deep armored thrusts but tempers it with staff discipline: he coordinates willingly with neighboring formations, keeps his superiors informed, and rarely overdraws his supply. In 1940 his corps covered the breakthrough's flank; in Russia he drives fast but watches his fuel state. A safe pair of hands who delivers aggressive results without drama."
+    },
+    {
+      "id": "kluge",
+      "name": "Generalfeldmarschall Guenther von Kluge",
+      "side": "axis",
+      "role": "4th Army",
+      "traits": {"aggression": 4, "caution": 7, "initiative": 4, "logistics": 7, "ego": 6},
+      "bio": "'Der kluge Hans' - Clever Hans - a meticulous Prussian artilleryman who commands the infantry mass of the army group. Kluge is methodical, politically supple, and deeply skeptical of the panzer generals' habit of racing beyond support; his feud with Guderian is the worst-kept secret in the Ostheer. He wants secure flanks, closed pockets, and an unbroken supply line before any further leap. Given a directive, he will execute it competently and to the letter - and report every risk his neighbors are running."
+    },
+    {
+      "id": "strauss",
+      "name": "Generaloberst Adolf Strauss",
+      "side": "axis",
+      "role": "9th Army",
+      "traits": {"aggression": 3, "caution": 7, "initiative": 3, "logistics": 6, "ego": 3},
+      "bio": "A steady, unspectacular infantry general in indifferent health, Strauss commands 9th Army on the army group's northern wing. He executes orders carefully, husbands his divisions, and never volunteers for glory. His reports are sober and accurate; his advances are deliberate; his defenses are well dug. He will not lose you a battle through rashness, and he will not win you one through daring."
+    },
+    {
+      "id": "weichs",
+      "name": "Generaloberst Maximilian von Weichs",
+      "side": "axis",
+      "role": "2nd Army",
+      "traits": {"aggression": 5, "caution": 6, "initiative": 5, "logistics": 6, "ego": 4},
+      "bio": "An experienced Bavarian aristocrat and a sound, balanced professional. Weichs's 2nd Army follows the panzer groups, reduces bypassed pockets, and secures the lengthening flanks. He is unflappable, cooperative, and pragmatic: aggressive when the situation rewards it, prudent when it does not. The staff work in his headquarters is impeccable."
+    },
+    {
+      "id": "pavlov",
+      "name": "General armii Dmitri Pavlov",
+      "side": "soviet",
+      "role": "Western Front",
+      "traits": {"aggression": 5, "caution": 3, "initiative": 2, "logistics": 3, "ego": 4},
+      "bio": "A tank specialist who fought in Spain and rose fast in the purged Red Army, Pavlov commands the Western Front from Minsk. He is personally brave but commands far beyond his depth, and he knows what happened to generals who displeased Stalin. He waits for Stavka authorization before reacting, holds forward positions long after they are compromised, and launches the counterattacks Moscow demands regardless of their prospects. Paralysis above, chaos below."
+    },
+    {
+      "id": "timoshenko",
+      "name": "Marshal Semyon Timoshenko",
+      "side": "soviet",
+      "role": "Western Direction",
+      "traits": {"aggression": 6, "caution": 4, "initiative": 5, "logistics": 5, "ego": 5},
+      "bio": "A burly old cavalryman of the Konarmiya school and former Defense Commissar, Timoshenko is energetic, physically fearless, and wedded to the counterblow: when struck, strike back. He restored the army after Finland and he steadies fronts by riding to the sound of the guns. His counterattacks are often premature and bloody, but they buy time, and time is the only currency the Red Army has in 1941."
+    },
+    {
+      "id": "konev",
+      "name": "General-polkovnik Ivan Konev",
+      "side": "soviet",
+      "role": "Reserve armies",
+      "traits": {"aggression": 7, "caution": 4, "initiative": 6, "logistics": 5, "ego": 7},
+      "bio": "A hard, ambitious ex-political commissar turned field commander, Konev drives his armies the way he drives himself - without mercy. He is quick to attack, quick to assign blame, and acutely conscious of his rivalry with Zhukov. His defenses are aggressive, full of local counterattacks; his retreats are late. Stalin values him because his front always fights."
+    },
+    {
+      "id": "zhukov",
+      "name": "General armii Georgi Zhukov",
+      "side": "soviet",
+      "role": "Moscow axis reserve",
+      "traits": {"aggression": 8, "caution": 4, "initiative": 8, "logistics": 7, "ego": 9},
+      "bio": "The victor of Khalkhin Gol and the most forceful commander the Red Army possesses. Zhukov is brutal, profane, and exact: he masses artillery, hoards reserves until the decisive moment, and spends men without sentiment to win. He tells Stalin unwelcome truths and survives it. Where Zhukov commands, retreat without orders means a tribunal; where he attacks, he attacks with everything at once. He is building the shield before Moscow - and the sledgehammer behind it."
+    }
+  ]
+}
