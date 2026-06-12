@@ -12,6 +12,8 @@ not at all. The Soviet commanders facing you work the same way.
 Born from frustration with micromanagement wargames: a real theater commander
 never moved a battalion. He wrote directives and read dispatches. So do you.
 
+![The situation map, August 1941](docs/screenshot.png)
+
 ## Requirements
 
 - Python 3.12+
