@@ -161,7 +161,8 @@ class Campaign:
             )
             user = "Events of the week:\n- " + "\n- ".join(facts)
             reply = await self.client.request_text(
-                [{"role": "system", "content": system}, {"role": "user", "content": user}]
+                [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                role="staff",
             )
             if reply:
                 return reply
@@ -193,7 +194,7 @@ class Campaign:
                 role = "user" if line["role"] == "player" else "assistant"
                 messages.append({"role": role, "content": line["text"]})
             messages.append({"role": "user", "content": message})
-            reply = await self.client.request_text(messages)
+            reply = await self.client.request_text(messages, role=commander_id)
             if not reply:
                 reply = f"({dossier.name} does not respond; the line crackles.)"
 

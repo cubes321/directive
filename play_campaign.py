@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from dataclasses import replace
 from pathlib import Path
 
 from commanders.campaign import Campaign
+from commanders.config import load_config
 from commanders.llm import LMStudioClient
 
 ROOT = Path(__file__).parent
@@ -44,11 +46,14 @@ BOCK_DIRECTIVES = {
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--turns", type=int, default=3)
-    parser.add_argument("--model", default="qwen/qwen3.6-35b-a3b")
+    parser.add_argument("--model", default=None, help="override config.toml model")
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
 
-    client = LMStudioClient(model=args.model, log_dir=ROOT / "logs" / "campaign")
+    config = load_config()
+    if args.model:
+        config = replace(config, model=args.model)
+    client = LMStudioClient.from_config(config, log_dir=ROOT / "logs" / "campaign")
     if args.resume and SAVE.exists():
         campaign = Campaign.load(SAVE, client=client)
         print(f"Resumed campaign at turn {campaign.state.turn}.")

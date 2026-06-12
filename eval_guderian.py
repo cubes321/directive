@@ -14,8 +14,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+from dataclasses import replace
 from pathlib import Path
 
+from commanders.config import load_config
 from commanders.dossier import Dossier, load_dossiers
 from commanders.llm import LMStudioClient, LMStudioUnavailable
 from commanders.scripted import scripted_orders
@@ -46,7 +48,10 @@ async def play(turns: int, model: str, dossier: Dossier, label: str) -> dict:
         "intermediate objective. Keep your group concentrated."
     )
     log_dir = ROOT / "logs" / f"eval_{label}"
-    client = LMStudioClient(model=model, log_dir=log_dir)
+    config = load_config()
+    if model:
+        config = replace(config, model=model)
+    client = LMStudioClient.from_config(config, log_dir=log_dir)
     summary = {"label": label, "turns": [], "postures": {"attack": 0, "advance": 0, "defend": 0, "reserve": 0}}
 
     for _ in range(turns):
@@ -89,7 +94,7 @@ async def play(turns: int, model: str, dossier: Dossier, label: str) -> dict:
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--turns", type=int, default=10)
-    parser.add_argument("--model", default="local-model")
+    parser.add_argument("--model", default=None, help="override config.toml model")
     parser.add_argument("--swap-personality", action="store_true")
     args = parser.parse_args()
 

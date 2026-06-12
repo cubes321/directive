@@ -14,8 +14,11 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
+from dataclasses import replace
+
 from commanders.briefing import build_briefing
 from commanders.campaign import Campaign
+from commanders.config import load_config
 from commanders.llm import LMStudioClient, LMStudioUnavailable
 from engine.fog import visible_enemy_contacts
 from engine.turn import TurnReport
@@ -24,7 +27,6 @@ from engine.victory import check_victory
 ROOT = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data"
 DEFAULT_SAVE = ROOT / "server" / "saves" / "campaign.json"
-DEFAULT_MODEL = "qwen/qwen3.6-35b-a3b"
 DISPATCH_HISTORY_LIMIT = 60
 
 
@@ -35,16 +37,19 @@ class Session:
         self.campaign: Campaign | None = None
         self.save_path = DEFAULT_SAVE
         self.use_llm = True
-        self.model = DEFAULT_MODEL
+        self.model: str | None = None  # explicit override; None = config.toml
         self.last_report: TurnReport | None = None
 
     def _client(self) -> LMStudioClient | None:
         if not self.use_llm:
             return None
-        return LMStudioClient(model=self.model, log_dir=ROOT / "logs" / "campaign")
+        config = load_config()
+        if self.model:
+            config = replace(config, model=self.model)
+        return LMStudioClient.from_config(config, log_dir=ROOT / "logs" / "campaign")
 
     def reset(self, save_path: Path | None = None, use_llm: bool = True,
-              model: str = DEFAULT_MODEL) -> None:
+              model: str | None = None) -> None:
         self.campaign = None
         self.last_report = None
         self.use_llm = use_llm

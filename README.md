@@ -42,8 +42,17 @@ a dry assessment of what actually happened. Use the ⚡ SIGNAL button on a
 commander's card to talk to him directly — recent exchanges are quoted in his
 next briefing, so a conversation is a real channel of influence, not flavor.
 
-Using a different model? Set it in `server/app.py` (`DEFAULT_MODEL`) or pass
-`--model` to the CLI tools.
+## Configuring the AI backend
+
+Copy `config.example.toml` to `config.toml` to point the game at any
+OpenAI-compatible endpoint (LM Studio, Ollama, llama.cpp, vLLM, OpenRouter…),
+set an API key if needed, and optionally assign different models per
+commander — e.g. a small fast model for the staff report and quiet sectors, a
+big one for Guderian. Environment variables (`DIRECTIVE_LLM_BASE_URL`,
+`DIRECTIVE_LLM_MODEL`, `DIRECTIVE_LLM_API_KEY`, …) override individual values,
+and `--model` on the CLI tools overrides the default model for one run.
+Without a config file, the defaults target LM Studio at
+`http://localhost:1234/v1` with `qwen/qwen3.6-35b-a3b`.
 
 ## Headless tools
 

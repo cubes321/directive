@@ -39,15 +39,36 @@ class LMStudioClient:
         model: str = "local-model",
         timeout: float = DEFAULT_TIMEOUT,
         temperature: float = 0.7,
+        api_key: str = "",
+        models: dict[str, str] | None = None,
         transport: httpx.BaseTransport | None = None,
         log_dir: Path | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
+        self.models = dict(models or {})  # role (commander id / "staff") -> model
         self.timeout = timeout
         self.temperature = temperature
+        self.api_key = api_key
         self.transport = transport
         self.log_dir = Path(log_dir) if log_dir else None
+
+    @classmethod
+    def from_config(cls, config, log_dir: Path | None = None,
+                    transport: httpx.BaseTransport | None = None) -> "LMStudioClient":
+        return cls(
+            base_url=config.base_url,
+            model=config.model,
+            models=config.models,
+            timeout=config.timeout_seconds,
+            temperature=config.temperature,
+            api_key=config.api_key,
+            transport=transport,
+            log_dir=log_dir,
+        )
+
+    def _model_for(self, role: str | None) -> str:
+        return self.models.get(role, self.model) if role else self.model
 
     async def request_orders(self, state: GameState, dossier: Dossier) -> CommanderOrders:
         messages = [
@@ -61,7 +82,7 @@ class LMStudioClient:
         last_parsed: CommanderOrders | None = None
         outcome = "fallback"
         for attempt in (1, 2):
-            request_payload = self._payload(messages)
+            request_payload = self._payload(messages, self._model_for(dossier.id))
             content = await self._chat(request_payload)
             transcript["attempts"].append({"response": content})
             transcript["request"] = request_payload  # last request sent
@@ -101,11 +122,11 @@ class LMStudioClient:
         self._log(transcript, dossier.id, state.turn)
         return result
 
-    async def request_text(self, messages: list[dict]) -> str:
+    async def request_text(self, messages: list[dict], role: str | None = None) -> str:
         """Plain conversational completion (no schema): used for commander
-        conversations and staff reports."""
+        conversations and staff reports. ``role`` selects a per-role model."""
         payload = {
-            "model": self.model,
+            "model": self._model_for(role),
             "messages": messages,
             "temperature": self.temperature,
         }
@@ -113,18 +134,19 @@ class LMStudioClient:
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
         return content
 
-    def _payload(self, messages: list[dict]) -> dict:
+    def _payload(self, messages: list[dict], model: str) -> dict:
         return {
-            "model": self.model,
+            "model": model,
             "messages": messages,
             "temperature": self.temperature,
             "response_format": {"type": "json_schema", "json_schema": ORDER_SCHEMA},
         }
 
     async def _chat(self, payload: dict) -> str:
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         try:
             async with httpx.AsyncClient(
-                transport=self.transport, timeout=self.timeout
+                transport=self.transport, timeout=self.timeout, headers=headers
             ) as client:
                 response = await client.post(
                     f"{self.base_url}/chat/completions", json=payload

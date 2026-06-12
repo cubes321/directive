@@ -10,3 +10,4 @@ build/
 server/saves/
 logs/
 .env
+config.toml
