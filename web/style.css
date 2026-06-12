@@ -339,6 +339,26 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 .chat-row button:disabled { filter: grayscale(.6) brightness(.8); cursor: wait; }
 
+/* order of battle */
+.oob-card {
+  background: var(--bone); color: var(--ink);
+  margin-bottom: 14px; padding: 10px 14px 12px;
+  box-shadow: 3px 4px 0 rgba(0,0,0,.4);
+}
+.oob-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.oob-cmd { font-family: var(--font-display); font-size: 15px; letter-spacing: 1.5px; }
+.oob-role { font-family: var(--font-ui); font-size: 10.5px; letter-spacing: 1.5px; color: #7a6b49; }
+.oob-table { width: 100%; border-collapse: collapse; font-family: var(--font-type); font-size: 12px; }
+.oob-table th {
+  font-family: var(--font-ui); font-size: 9.5px; letter-spacing: 2px; color: #7a6b49;
+  text-align: left; border-bottom: 1px solid #b3a784; padding: 2px 6px 3px 0;
+}
+.oob-table th:nth-child(n+3), .oob-table td:nth-child(n+3) { text-align: right; width: 42px; }
+.oob-table td { padding: 3px 6px 3px 0; border-bottom: 1px dotted #cabf9f; }
+.oob-table tbody tr { cursor: default; }
+.oob-table tbody tr:hover { background: rgba(42, 77, 105, .10); }
+.oob-table td.low { color: var(--enemy-deep); font-weight: 700; }
+
 /* battles */
 .battle-line {
   font-family: var(--font-type); font-size: 12.5px; line-height: 1.5;

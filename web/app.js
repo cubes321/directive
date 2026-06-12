@@ -426,6 +426,60 @@ async function sendSignal(commanderId) {
   }
 }
 
+/* ── order of battle ─────────────────────────────── */
+
+function renderOob() {
+  const page = $("#tab-oob");
+  page.textContent = "";
+  const regionName = {};
+  snap.regions.forEach((r) => (regionName[r.id] = r.name));
+  const byCommander = {};
+  for (const c of snap.corps) (byCommander[c.commander] ||= []).push(c);
+
+  for (const cmd of snap.commanders) {
+    const corps = byCommander[cmd.id] || [];
+    const card = document.createElement("div");
+    card.className = "oob-card";
+    card.innerHTML = `
+      <div class="oob-head">
+        <span class="oob-cmd">${esc(cmd.name)}</span>
+        <span class="oob-role">${esc(cmd.role)} · ${corps.length} corps</span>
+      </div>`;
+    const table = document.createElement("table");
+    table.className = "oob-table";
+    table.innerHTML = `<thead><tr>
+      <th>FORMATION</th><th>AT</th><th>STR</th><th>ORG</th><th>SUP</th>
+    </tr></thead>`;
+    const tbody = document.createElement("tbody");
+    for (const c of corps) {
+      const tr = document.createElement("tr");
+      const cells = [
+        `${c.name}${c.kind === "panzer" ? " ⛭" : ""}`,
+        regionName[c.location] || c.location,
+        c.strength, c.organization, c.supply,
+      ];
+      cells.forEach((v, i) => {
+        const td = document.createElement("td");
+        td.textContent = v;
+        if (i >= 2 && Number(v) < 40) td.className = "low";
+        tr.appendChild(td);
+      });
+      tr.addEventListener("mouseenter", () => {
+        highlightedCorps = new Set([c.id]);
+        renderMap();
+      });
+      tr.addEventListener("mouseleave", () => {
+        highlightedCorps = new Set();
+        renderMap();
+      });
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    card.appendChild(table);
+    page.appendChild(card);
+  }
+}
+
 /* ── battles ─────────────────────────────────────── */
 
 function renderBattles() {
@@ -524,6 +578,7 @@ function renderAll() {
   renderMap();
   renderDispatches();
   renderCommanders();
+  renderOob();
   renderBattles();
   renderVerdict();
 }
