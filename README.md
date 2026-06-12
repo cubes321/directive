@@ -151,3 +151,19 @@ server/      FastAPI: snapshot API + the lamplit situation-map UI in web/
 ```
 
 Design spec: `docs/superpowers/specs/2026-06-11-directive-design.md`.
+
+## Historical note
+
+This is a military simulation set on the Eastern Front in 1941, in the
+tradition of operational wargames. The player commands German forces because
+that is where the campaign's central question — delegation to strong-willed
+subordinates under a closing window — historically sits. Commanders on both
+sides are portrayed strictly as professional military figures, based on the
+historical record; nothing here endorses or glorifies the Nazi regime, its
+ideology, or its crimes. Because the commanders are played by a language model
+asked to stay in period character, generated dispatches may contain
+period-typical rhetoric and attitudes — that is simulation, not endorsement.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
