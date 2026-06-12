@@ -146,6 +146,9 @@ function renderMap() {
       const gc = el("g", { class: cls }, g);
       el("rect", { x: r.x - 11, y: r.y - 24, width: 22, height: 13 }, gc);
       el("text", { x: r.x, y: r.y - 14 }, gc).textContent = `${own.length}⨯`;
+      const commanders = [...new Set(own.map((c) => commanderSurname(c.commander)))];
+      el("text", { x: r.x, y: r.y - 28, class: "commander-label" }, gc).textContent =
+        commanders.join(" / ");
     }
     const contacts = snap.contacts[r.id] || [];
     if (contacts.length) {
@@ -160,6 +163,12 @@ function renderMap() {
   svg.addEventListener("click", (ev) => {
     if (ev.target === svg) $("#region-pop").classList.add("hidden");
   });
+}
+
+function commanderSurname(commanderId) {
+  const cmd = snap.commanders.find((c) => c.id === commanderId);
+  if (!cmd) return commanderId.toUpperCase();
+  return cmd.name.split(" ").pop().toUpperCase();
 }
 
 function starPath(cx, cy, r) {
@@ -216,14 +225,23 @@ function renderDispatches() {
       div.textContent = `WEEK ${d.turn}`;
       page.appendChild(div);
     }
-    const cmd = byName[d.commander];
     const card = document.createElement("div");
-    card.className = "dispatch";
-    card.innerHTML = `
-      <div class="geheim">GEHEIM</div>
-      <div class="from">${esc(cmd ? cmd.name : d.commander)}</div>
-      <div class="meta">${esc(cmd ? cmd.role : "")} · WEEK ${Number(d.turn)}</div>
-      <div class="body"></div>`;
+    if (d.commander === "staff") {
+      card.className = "dispatch staff";
+      card.innerHTML = `
+        <div class="geheim">STAB</div>
+        <div class="from">Chief of Staff — Genmaj. von Greiffenberg</div>
+        <div class="meta">WEEKLY STAFF ASSESSMENT · WEEK ${Number(d.turn)}</div>
+        <div class="body"></div>`;
+    } else {
+      const cmd = byName[d.commander];
+      card.className = "dispatch";
+      card.innerHTML = `
+        <div class="geheim">GEHEIM</div>
+        <div class="from">${esc(cmd ? cmd.name : d.commander)}</div>
+        <div class="meta">${esc(cmd ? cmd.role : "")} · WEEK ${Number(d.turn)}</div>
+        <div class="body"></div>`;
+    }
     card.querySelector(".body").textContent = d.text;
     page.appendChild(card);
   });
@@ -271,6 +289,16 @@ function renderCommanders() {
              <button class="dismiss-btn" data-dismiss="${esc(cmd.id)}">RELIEVE</button>`
           : `<span class="dismiss-cost">No replacement available.</span>`}
         <span class="dismiss-cost">costs ${Number(cmd.dismissal_cost)} standing</span>
+        <span class="spacer"></span>
+        <button class="chat-toggle" data-chat="${esc(cmd.id)}">⚡ SIGNAL</button>
+      </div>
+      <div class="chat hidden" data-chatbox="${esc(cmd.id)}">
+        <div class="chat-log" data-chatlog="${esc(cmd.id)}"></div>
+        <div class="chat-row">
+          <input data-chatmsg="${esc(cmd.id)}" maxlength="500"
+                 placeholder="Signal ${esc(cmd.name.split(" ").pop())}…">
+          <button data-chatsend="${esc(cmd.id)}">SEND</button>
+        </div>
       </div>`;
     card.querySelector("textarea").value = snap.directives[cmd.id] || "";
     card.addEventListener("mouseenter", () => {
@@ -305,6 +333,27 @@ function renderCommanders() {
     });
   });
 
+  page.querySelectorAll("button[data-chat]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.chat;
+      const box = page.querySelector(`[data-chatbox="${CSS.escape(id)}"]`);
+      box.classList.toggle("hidden");
+      if (!box.classList.contains("hidden")) {
+        renderChatLog(id);
+        box.querySelector("input").focus();
+      }
+    });
+  });
+
+  page.querySelectorAll("button[data-chatsend]").forEach((btn) => {
+    btn.addEventListener("click", () => sendSignal(btn.dataset.chatsend));
+  });
+  page.querySelectorAll("input[data-chatmsg]").forEach((input) => {
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") sendSignal(input.dataset.chatmsg);
+    });
+  });
+
   page.querySelectorAll("button[data-dismiss]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const id = btn.dataset.dismiss;
@@ -324,6 +373,57 @@ function renderCommanders() {
       }
     });
   });
+}
+
+function renderChatLog(commanderId) {
+  const log = document.querySelector(`[data-chatlog="${CSS.escape(commanderId)}"]`);
+  if (!log) return;
+  log.textContent = "";
+  const thread = (snap.conversations || {})[commanderId] || [];
+  if (!thread.length) {
+    const empty = document.createElement("div");
+    empty.className = "chat-empty";
+    empty.textContent = "The line is open.";
+    log.appendChild(empty);
+  }
+  for (const line of thread) {
+    const div = document.createElement("div");
+    div.className = "chat-line " + line.role;
+    const who = document.createElement("b");
+    who.textContent = line.role === "player" ? "YOU" : commanderSurname(commanderId);
+    div.appendChild(who);
+    div.appendChild(document.createTextNode(" " + line.text));
+    log.appendChild(div);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+async function sendSignal(commanderId) {
+  const input = document.querySelector(`input[data-chatmsg="${CSS.escape(commanderId)}"]`);
+  const btn = document.querySelector(`button[data-chatsend="${CSS.escape(commanderId)}"]`);
+  const message = input.value.trim();
+  if (!message) return;
+  input.disabled = btn.disabled = true;
+  btn.textContent = "…";
+  snap.conversations[commanderId] = snap.conversations[commanderId] || [];
+  snap.conversations[commanderId].push({ turn: snap.turn, role: "player", text: message });
+  renderChatLog(commanderId);
+  try {
+    const r = await api("/api/game/converse", {
+      method: "POST",
+      body: JSON.stringify({ commander: commanderId, message }),
+    });
+    snap.conversations[commanderId].push({ turn: snap.turn, role: "commander", text: r.reply });
+    input.value = "";
+  } catch (e) {
+    snap.conversations[commanderId].pop(); // the message never got through
+    toast("Signal failed: " + e.message);
+  } finally {
+    input.disabled = btn.disabled = false;
+    btn.textContent = "SEND";
+    renderChatLog(commanderId);
+    input.focus();
+  }
 }
 
 /* ── battles ─────────────────────────────────────── */

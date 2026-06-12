@@ -87,6 +87,17 @@ def build_briefing(state: GameState, commander: str) -> str:
     lines.append("THEATER DIRECTIVE FROM YOUR COMMANDER:")
     lines.append(f'"{directive}"')
     lines.append("")
+    recent_exchange = [
+        line
+        for line in state.conversations.get(commander, [])
+        if line["turn"] >= state.turn - 1
+    ][-6:]
+    if recent_exchange:
+        lines.append("RECENT EXCHANGES WITH YOUR COMMANDER-IN-CHIEF (weigh them in your decisions):")
+        for line in recent_exchange:
+            speaker = "C-in-C" if line["role"] == "player" else "You"
+            lines.append(f'  {speaker}: "{line["text"]}"')
+        lines.append("")
     lines.append("YOUR FORCES:")
     for corps in own:
         lines.append(_corps_status(state, corps))

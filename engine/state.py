@@ -29,6 +29,8 @@ class GameState:
     directives: dict[str, str] = field(default_factory=dict)  # commander -> text
     dispatches: list[dict] = field(default_factory=list)  # {turn, commander, text}
     reinforcements: list[dict] = field(default_factory=list)  # {turn, corps: {...}}
+    conversations: dict[str, list[dict]] = field(default_factory=dict)
+    # commander -> [{turn, role: player|commander, text}]
 
     @property
     def date(self) -> datetime.date:
@@ -57,6 +59,7 @@ class GameState:
             directives=dict(data.get("directives", {})),
             dispatches=list(data.get("dispatches", [])),
             reinforcements=list(data.get("reinforcements", [])),
+            conversations={k: list(v) for k, v in data.get("conversations", {}).items()},
         )
 
     def to_dict(self) -> dict:
@@ -71,4 +74,5 @@ class GameState:
             "directives": dict(self.directives),
             "dispatches": list(self.dispatches),
             "reinforcements": list(self.reinforcements),
+            "conversations": {k: list(v) for k, v in self.conversations.items()},
         }

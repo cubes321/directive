@@ -18,6 +18,11 @@ def scripted_as_model(campaign):
 
     def responder(request):
         body = json.loads(request.content)
+        if "response_format" not in body:  # staff report / conversation: plain text
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": "Staff assessment: the front advances."}}]},
+            )
         system = body["messages"][0]["content"]
         commander = next(
             cid for role, cid in role_to_id.items() if role != "(awaiting command)" and f"commanding {role}" in system
@@ -46,10 +51,11 @@ async def test_play_turn_runs_all_nine_commanders():
     campaign = make_campaign()
     result = await campaign.play_turn({"guderian": "Take Minsk."})
     assert campaign.state.turn == 2
-    assert len(result.dispatches) == 9
-    assert {d["commander"] for d in result.dispatches} >= {"guderian", "zhukov"}
-    # dispatches also recorded in state for the UI
-    assert len(campaign.state.dispatches) == 9
+    commander_dispatches = [d for d in result.dispatches if d["commander"] != "staff"]
+    assert len(commander_dispatches) == 9
+    assert {d["commander"] for d in result.dispatches} >= {"guderian", "zhukov", "staff"}
+    # dispatches also recorded in state for the UI (9 commanders + staff report)
+    assert len(campaign.state.dispatches) == 10
 
 
 async def test_soviet_commanders_get_stavka_directives():
@@ -75,6 +81,27 @@ async def test_save_and_load_round_trip(tmp_path):
     assert loaded.state.to_dict() == campaign.state.to_dict()
     assert loaded.political_capital == 7
     assert loaded.dossiers["guderian"].track_record == campaign.dossiers["guderian"].track_record
+
+
+async def test_turn_ends_with_a_chief_of_staff_report():
+    campaign = make_campaign()
+    result = await campaign.play_turn({"guderian": "Forward."})
+    staff = [d for d in result.dispatches if d["commander"] == "staff"]
+    assert len(staff) == 1
+    assert staff[0]["text"]
+    # appended after the commanders' dispatches so the inbox shows it on top
+    assert campaign.state.dispatches[-1]["commander"] == "staff"
+
+
+async def test_staff_report_without_llm_summarizes_battles():
+    campaign = Campaign.new(DATA_DIR)  # no client -> deterministic summary
+    result = await campaign.play_turn({})
+    staff = next(d for d in result.dispatches if d["commander"] == "staff")
+    combats = result.report.combats
+    if combats:
+        region = combats[0]["region"]
+        name = campaign.state.game_map.regions[region].name
+        assert name in staff["text"]
 
 
 async def test_taking_moscow_ends_the_game():

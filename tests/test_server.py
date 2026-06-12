@@ -44,6 +44,8 @@ async def test_end_turn_advances_and_returns_dispatches(api):
     assert snap["turn"] == 2
     assert snap["dispatches"]
     assert snap["last_report"] is not None
+    assert any(d["commander"] == "staff" for d in snap["dispatches"])
+    assert not any(d["commander"] == "zhukov" for d in snap["dispatches"])
 
 
 async def test_dismiss_endpoint_validates(api):
@@ -85,6 +87,24 @@ async def test_snapshot_reports_weather_and_victory(api):
     assert snap["victory"]["winner"] == "axis"
     r = await api.post("/api/game/end-turn")
     assert r.status_code == 409
+
+
+async def test_converse_endpoint_round_trip(api):
+    await api.post("/api/game/new")
+    r = await api.post(
+        "/api/game/converse",
+        json={"commander": "guderian", "message": "Where will you strike first?"},
+    )
+    assert r.status_code == 200
+    assert r.json()["reply"]
+    snap = (await api.get("/api/game")).json()
+    thread = snap["conversations"]["guderian"]
+    assert thread[0]["role"] == "player"
+    assert thread[1]["role"] == "commander"
+    bad = await api.post(
+        "/api/game/converse", json={"commander": "zhukov", "message": "Comrade?"}
+    )
+    assert bad.status_code == 400
 
 
 async def test_game_state_persists_across_session_reload(api, tmp_path):

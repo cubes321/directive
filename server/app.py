@@ -142,8 +142,10 @@ def snapshot(session: Session) -> dict:
     ]
     own_commander_ids = {d["id"] for d in player_commanders}
     dispatches = [
-        d for d in state.dispatches if d["commander"] in campaign.dossiers
-        and campaign.dossiers[d["commander"]].side == side
+        d for d in state.dispatches
+        if d["commander"] == "staff"
+        or (d["commander"] in campaign.dossiers
+            and campaign.dossiers[d["commander"]].side == side)
     ][-DISPATCH_HISTORY_LIMIT:]
 
     vp = {"axis": 0, "soviet": 0}
@@ -167,6 +169,11 @@ def snapshot(session: Session) -> dict:
             k: v for k, v in state.directives.items() if k in own_commander_ids
         },
         "dispatches": dispatches,
+        "conversations": {
+            cid: thread
+            for cid, thread in state.conversations.items()
+            if cid in own_commander_ids
+        },
         "last_report": _report_dict(session.last_report),
         "victory": check_victory(state),
     }
@@ -224,6 +231,20 @@ async def dismiss(body: dict):
         "cost": cost,
         "political_capital": campaign.political_capital,
     }
+
+
+@app.post("/api/game/converse")
+async def converse(body: dict):
+    session = get_session()
+    campaign = session.require_campaign()
+    try:
+        reply = await campaign.converse(body["commander"], body["message"])
+    except (ValueError, KeyError) as e:
+        raise HTTPException(400, str(e))
+    except LMStudioUnavailable as e:
+        raise HTTPException(503, str(e))
+    campaign.save(session.save_path)
+    return {"reply": reply}
 
 
 @app.get("/api/game/briefing/{commander}")

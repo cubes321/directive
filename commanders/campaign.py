@@ -17,9 +17,11 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from commanders.briefing import build_briefing
 from commanders.dossier import Dossier, load_dossiers
 from commanders.intent import soviet_directives
 from commanders.llm import LMStudioClient
+from commanders.prompts import build_system_prompt
 from commanders.orchestrator import gather_orders
 from commanders.records import update_track_records
 from commanders.scripted import scripted_orders
@@ -102,9 +104,102 @@ class Campaign:
 
         report = resolve_turn(self.state, all_orders)
         update_track_records(self.state, report, self.dossiers)
+
+        staff_dispatch = {
+            "turn": report.turn,
+            "commander": "staff",
+            "text": await self._staff_report(report),
+        }
+        self.state.dispatches.append(staff_dispatch)
+        dispatches.append(staff_dispatch)
+
         return TurnResult(
             report=report, dispatches=dispatches, victory=check_victory(self.state)
         )
+
+    def _staff_facts(self, report: TurnReport) -> list[str]:
+        """Player-side view of the week, as terse factual lines."""
+        facts: list[str] = []
+        for c in report.combats:
+            region = self.state.game_map.regions[c["region"]].name
+            we_attacked = self.state.corps[c["attackers"][0]].side == self.player_side
+            won = c["outcome"] == "defender_retreated"
+            if we_attacked:
+                verdict = "position carried" if won else "assault repulsed"
+                own_losses, enemy_losses = c["attacker_losses"], c["defender_losses"]
+            else:
+                verdict = "position lost" if won else "attack beaten off"
+                own_losses, enemy_losses = c["defender_losses"], c["attacker_losses"]
+            line = (
+                f"{region}: {'our attack' if we_attacked else 'enemy attack'}, "
+                f"{verdict} (our losses {own_losses}, theirs est. {enemy_losses})"
+            )
+            if c["encircled"]:
+                line += "; the defenders were encircled and destroyed"
+            facts.append(line)
+        if not facts:
+            facts.append("No major engagements this week.")
+        starved = [
+            c.name for c in self.state.living_corps()
+            if c.side == self.player_side and c.supply < 40
+        ]
+        if starved:
+            facts.append("Supply critical for: " + ", ".join(starved))
+        if self.state.weather != "clear":
+            facts.append(f"Weather: {self.state.weather}.")
+        return facts
+
+    async def _staff_report(self, report: TurnReport) -> str:
+        facts = self._staff_facts(report)
+        if self.client is not None:
+            system = (
+                "You are Generalmajor Hans von Greiffenberg, chief of staff of "
+                "Army Group Center, summer 1941. Write the weekly staff assessment "
+                "for Field Marshal von Bock: dry, precise, professional, under 180 "
+                "words, plain text. State what happened, what it cost, what worries "
+                "the staff, and one recommendation. No flattery."
+            )
+            user = "Events of the week:\n- " + "\n- ".join(facts)
+            reply = await self.client.request_text(
+                [{"role": "system", "content": system}, {"role": "user", "content": user}]
+            )
+            if reply:
+                return reply
+        return "Weekly staff assessment:\n- " + "\n- ".join(facts)
+
+    async def converse(self, commander_id: str, message: str) -> str:
+        """A signal exchange with one of your commanders. The thread persists
+        and recent lines are quoted in his next briefing - conversations are a
+        real channel of influence, not flavor."""
+        if commander_id not in self.active_commanders(self.player_side):
+            raise ValueError(f"{commander_id} is not one of your active commanders")
+        dossier = self.dossiers[commander_id]
+        thread = self.state.conversations.setdefault(commander_id, [])
+
+        if self.client is None:
+            reply = f"({dossier.name} acknowledges your signal.)"
+        else:
+            system = (
+                build_system_prompt(dossier)
+                + "\n\nYou are now in a direct signal exchange with your theater "
+                "commander. This is conversation, not an orders transmission: "
+                "reply in character, in plain text, under 150 words. Speak your "
+                "mind as this man would - what you see, what you need, what you "
+                "think of his intentions.\n\nYOUR CURRENT SITUATION:\n"
+                + build_briefing(self.state, commander_id)
+            )
+            messages = [{"role": "system", "content": system}]
+            for line in thread[-8:]:
+                role = "user" if line["role"] == "player" else "assistant"
+                messages.append({"role": role, "content": line["text"]})
+            messages.append({"role": "user", "content": message})
+            reply = await self.client.request_text(messages)
+            if not reply:
+                reply = f"({dossier.name} does not respond; the line crackles.)"
+
+        thread.append({"turn": self.state.turn, "role": "player", "text": message})
+        thread.append({"turn": self.state.turn, "role": "commander", "text": reply})
+        return reply
 
     def dismissal_cost(self, commander_id: str) -> int:
         return DISMISSAL_BASE_COST + self.dossiers[commander_id].traits.get("ego", 5) // 3

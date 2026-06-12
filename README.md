@@ -37,6 +37,11 @@ Open http://localhost:8000. Write directives on the COMMANDERS tab, press
 ISSUE ORDERS, and read what your generals have to say about it. A full turn
 (nine commanders thinking) takes a couple of minutes on local hardware.
 
+Each week your chief of staff (Genmaj. von Greiffenberg) opens the inbox with
+a dry assessment of what actually happened. Use the ⚡ SIGNAL button on a
+commander's card to talk to him directly — recent exchanges are quoted in his
+next briefing, so a conversation is a real channel of influence, not flavor.
+
 Using a different model? Set it in `server/app.py` (`DEFAULT_MODEL`) or pass
 `--model` to the CLI tools.
 

@@ -101,6 +101,18 @@ class LMStudioClient:
         self._log(transcript, dossier.id, state.turn)
         return result
 
+    async def request_text(self, messages: list[dict]) -> str:
+        """Plain conversational completion (no schema): used for commander
+        conversations and staff reports."""
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": self.temperature,
+        }
+        content = await self._chat(payload)
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        return content
+
     def _payload(self, messages: list[dict]) -> dict:
         return {
             "model": self.model,
