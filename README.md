@@ -15,9 +15,11 @@ never moved a battalion. He wrote directives and read dispatches. So do you.
 ## Requirements
 
 - Python 3.12+
-- [LM Studio](https://lmstudio.ai/) with its local server running
-  (`lms server start`) and a capable instruct model loaded.
-  Recommended class: Qwen3.6-35B-A3B or similar MoE (~16 GB VRAM).
+- Any OpenAI-compatible chat-completions server and a capable instruct model.
+  The default setup assumes [LM Studio](https://lmstudio.ai/) with its local
+  server running (`lms server start`); Ollama, llama.cpp, vLLM, or a hosted
+  provider like OpenRouter work too — see *Configuring the AI backend*.
+  Recommended model class: Qwen3.6-35B-A3B or similar MoE (~16 GB VRAM).
 
 ## Setup
 
@@ -44,15 +46,77 @@ next briefing, so a conversation is a real channel of influence, not flavor.
 
 ## Configuring the AI backend
 
-Copy `config.example.toml` to `config.toml` to point the game at any
-OpenAI-compatible endpoint (LM Studio, Ollama, llama.cpp, vLLM, OpenRouter…),
-set an API key if needed, and optionally assign different models per
-commander — e.g. a small fast model for the staff report and quiet sectors, a
-big one for Guderian. Environment variables (`DIRECTIVE_LLM_BASE_URL`,
-`DIRECTIVE_LLM_MODEL`, `DIRECTIVE_LLM_API_KEY`, …) override individual values,
-and `--model` on the CLI tools overrides the default model for one run.
-Without a config file, the defaults target LM Studio at
-`http://localhost:1234/v1` with `qwen/qwen3.6-35b-a3b`.
+The game talks to any **OpenAI-compatible chat-completions endpoint**. With no
+configuration at all it targets LM Studio at `http://localhost:1234/v1` with
+`qwen/qwen3.6-35b-a3b`. To change that, copy the committed example and edit:
+
+```powershell
+Copy-Item config.example.toml config.toml
+```
+
+`config.toml` is **gitignored**, so an API key placed there never reaches
+version control. A full example:
+
+```toml
+[llm]
+base_url = "http://localhost:1234/v1"   # where the server lives (see table below)
+api_key = ""                            # empty = no auth header (local servers)
+model = "qwen/qwen3.6-35b-a3b"          # default model for every role
+temperature = 0.7
+timeout_seconds = 120                   # per-commander request timeout
+
+[llm.models]                            # optional per-role overrides
+staff = "qwen/qwen3.5-9b"               # chief-of-staff report: cheap and fast
+strauss = "qwen/qwen3.5-9b"             # quiet sectors don't need the big brain
+weichs = "qwen/qwen3.5-9b"
+guderian = "glm-4.7-flash"              # spend the tokens where the drama is
+```
+
+### Endpoints
+
+| Server | `base_url` | `api_key` |
+| --- | --- | --- |
+| LM Studio | `http://localhost:1234/v1` | not needed |
+| Ollama | `http://localhost:11434/v1` | not needed |
+| llama.cpp server | `http://localhost:8080/v1` | not needed |
+| vLLM | `http://localhost:8000/v1` (mind the port clash with the game server) | usually not needed |
+| OpenRouter | `https://openrouter.ai/api/v1` | required |
+
+The `model` value must be the name *that server* knows: `lms ps` for LM Studio,
+`ollama list` for Ollama, the provider's model id for hosted APIs.
+
+### Per-role models
+
+Keys under `[llm.models]` are commander ids — `guderian`, `hoth`, `kluge`,
+`strauss`, `weichs`, `pavlov`, `timoshenko`, `konev`, `zhukov`, any bench
+commander you promote (`schmidt`, `reinhardt`, `model`, `yeremenko`,
+`rokossovsky`, `vatutin`) — plus `staff` for the weekly chief-of-staff report.
+Conversations with a commander use his model too. Roles not listed use the
+default `model`.
+
+This is the main lever on turn time: nine commanders plus the staff report run
+per turn, and putting the quiet ones on a small model shortens the wait
+considerably. If a small model starts fumbling orders for a sector, the
+validate→repair→salvage net catches it, but you'll see more *"no new orders
+received"* from that commander — run `analyze_logs.py campaign` to check a
+model's ok/salvaged/fallback rates before trusting it with a flank.
+
+### Overrides
+
+Environment variables beat the file, useful for one-off runs and scripts:
+
+| Variable | Overrides |
+| --- | --- |
+| `DIRECTIVE_LLM_BASE_URL` | `base_url` |
+| `DIRECTIVE_LLM_API_KEY` | `api_key` |
+| `DIRECTIVE_LLM_MODEL` | `model` (the default; per-role entries still apply) |
+| `DIRECTIVE_LLM_TEMPERATURE` | `temperature` |
+| `DIRECTIVE_LLM_TIMEOUT` | `timeout_seconds` |
+
+The CLI tools (`play_campaign.py`, `eval_guderian.py`) also accept `--model`
+to override the default model for a single run — handy for comparing models
+in the eval harness. Restart the game server after changing `config.toml`;
+it reads the file when it builds the client.
 
 ## Headless tools
 
