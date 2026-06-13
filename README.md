@@ -65,7 +65,8 @@ base_url = "http://localhost:1234/v1"   # where the server lives (see table belo
 api_key = ""                            # empty = no auth header (local servers)
 model = "qwen/qwen3.6-35b-a3b"          # default model for every role
 temperature = 0.7
-timeout_seconds = 120                   # per-commander request timeout
+timeout_seconds = 300                   # per-request timeout (thinking models are slow)
+max_concurrency = 3                     # match your server's parallelism (lms ps)
 
 [llm.models]                            # optional per-role overrides
 staff = "qwen/qwen3.5-9b"               # chief-of-staff report: cheap and fast
@@ -114,6 +115,7 @@ Environment variables beat the file, useful for one-off runs and scripts:
 | `DIRECTIVE_LLM_MODEL` | `model` (the default; per-role entries still apply) |
 | `DIRECTIVE_LLM_TEMPERATURE` | `temperature` |
 | `DIRECTIVE_LLM_TIMEOUT` | `timeout_seconds` |
+| `DIRECTIVE_LLM_MAX_CONCURRENCY` | `max_concurrency` |
 
 The CLI tools (`play_campaign.py`, `eval_guderian.py`) also accept `--model`
 to override the default model for a single run — handy for comparing models

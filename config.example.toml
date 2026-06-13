@@ -21,7 +21,17 @@ api_key = ""
 model = "qwen/qwen3.6-35b-a3b"
 
 temperature = 0.7
-timeout_seconds = 120
+
+# Per-request timeout. Local thinking models under load can take minutes;
+# a request that exceeds this is dropped and the commander holds position.
+timeout_seconds = 300
+
+# Maximum requests sent to the server at once. Set this to your server's real
+# parallelism — LM Studio defaults to 3 (shown in `lms ps`). The game queues
+# the rest on the client side so they don't time out waiting in the server's
+# queue. On a single GPU, raising this past your server's limit only adds
+# latency; lowering it to 1-2 reduces per-request variance.
+max_concurrency = 3
 
 # Optional per-role overrides: keys are commander ids (guderian, hoth, kluge,
 # strauss, weichs, pavlov, timoshenko, konev, zhukov, and any bench commander

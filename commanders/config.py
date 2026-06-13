@@ -25,7 +25,11 @@ class LLMConfig:
     api_key: str = ""
     model: str = "qwen/qwen3.6-35b-a3b"
     temperature: float = 0.7
-    timeout_seconds: float = 120.0
+    timeout_seconds: float = 300.0
+    # Max requests in flight to the server at once. Match your server's
+    # parallelism (LM Studio defaults to 3). Higher only helps if the backend
+    # can truly serve more at once; on a single GPU it just adds latency.
+    max_concurrency: int = 3
     models: dict[str, str] = field(default_factory=dict)  # role -> model override
 
     def model_for(self, role: str) -> str:
@@ -39,7 +43,8 @@ def load_config(path: Path | None = None) -> LLMConfig:
         llm = tomllib.loads(path.read_text(encoding="utf-8")).get("llm", {})
         values = {
             key: llm[key]
-            for key in ("base_url", "api_key", "model", "temperature", "timeout_seconds")
+            for key in ("base_url", "api_key", "model", "temperature",
+                        "timeout_seconds", "max_concurrency")
             if key in llm
         }
         if isinstance(llm.get("models"), dict):
@@ -51,10 +56,16 @@ def load_config(path: Path | None = None) -> LLMConfig:
         "model": os.environ.get("DIRECTIVE_LLM_MODEL"),
         "temperature": os.environ.get("DIRECTIVE_LLM_TEMPERATURE"),
         "timeout_seconds": os.environ.get("DIRECTIVE_LLM_TIMEOUT"),
+        "max_concurrency": os.environ.get("DIRECTIVE_LLM_MAX_CONCURRENCY"),
     }
     for key, raw in env.items():
         if raw is None:
             continue
-        values[key] = float(raw) if key in ("temperature", "timeout_seconds") else raw
+        if key in ("temperature", "timeout_seconds"):
+            values[key] = float(raw)
+        elif key == "max_concurrency":
+            values[key] = int(raw)
+        else:
+            values[key] = raw
 
     return LLMConfig(**values)

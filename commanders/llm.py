@@ -11,6 +11,7 @@ orders instead. Full transcripts can be logged to disk for prompt debugging.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -25,7 +26,8 @@ from engine.orders import CommanderOrders, fallback_orders, salvage_orders, vali
 from engine.state import GameState
 
 DEFAULT_BASE_URL = "http://localhost:1234/v1"
-DEFAULT_TIMEOUT = 120.0
+DEFAULT_TIMEOUT = 300.0
+DEFAULT_MAX_CONCURRENCY = 3
 
 
 class LMStudioUnavailable(RuntimeError):
@@ -41,6 +43,7 @@ class LMStudioClient:
         temperature: float = 0.7,
         api_key: str = "",
         models: dict[str, str] | None = None,
+        max_concurrency: int = DEFAULT_MAX_CONCURRENCY,
         transport: httpx.BaseTransport | None = None,
         log_dir: Path | None = None,
     ):
@@ -50,6 +53,10 @@ class LMStudioClient:
         self.timeout = timeout
         self.temperature = temperature
         self.api_key = api_key
+        self.max_concurrency = max_concurrency
+        # Gate in-flight requests so queued ones wait here (no timeout running)
+        # rather than in the server's queue (timeout burning) — see _chat.
+        self._semaphore = asyncio.Semaphore(max_concurrency)
         self.transport = transport
         self.log_dir = Path(log_dir) if log_dir else None
 
@@ -63,6 +70,7 @@ class LMStudioClient:
             timeout=config.timeout_seconds,
             temperature=config.temperature,
             api_key=config.api_key,
+            max_concurrency=config.max_concurrency,
             transport=transport,
             log_dir=log_dir,
         )
@@ -145,17 +153,22 @@ class LMStudioClient:
     async def _chat(self, payload: dict) -> str:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         try:
-            async with httpx.AsyncClient(
-                transport=self.transport, timeout=self.timeout, headers=headers
-            ) as client:
-                response = await client.post(
-                    f"{self.base_url}/chat/completions", json=payload
-                )
-                response.raise_for_status()
-                message = response.json()["choices"][0]["message"]
-                # Thinking models served by LM Studio sometimes leave "content"
-                # empty and put everything in "reasoning_content".
-                return message.get("content") or message.get("reasoning_content") or ""
+            # The semaphore bounds in-flight requests to the server's real
+            # parallelism. Crucially it is held OUTSIDE the AsyncClient, so a
+            # request waiting for a slot is not yet counting against its own
+            # read timeout — the timeout then measures generation, not queueing.
+            async with self._semaphore:
+                async with httpx.AsyncClient(
+                    transport=self.transport, timeout=self.timeout, headers=headers
+                ) as client:
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions", json=payload
+                    )
+                    response.raise_for_status()
+                    message = response.json()["choices"][0]["message"]
+                    # Thinking models served by LM Studio sometimes leave
+                    # "content" empty and put everything in "reasoning_content".
+                    return message.get("content") or message.get("reasoning_content") or ""
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             raise LMStudioUnavailable(
                 f"Cannot reach LM Studio at {self.base_url} - is the server running "

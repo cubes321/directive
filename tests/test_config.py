@@ -105,10 +105,20 @@ async def test_per_role_model_used_in_requests():
 
 def test_client_built_from_config():
     cfg = LLMConfig(base_url="http://x/v1", api_key="k", model="m",
-                    models={"staff": "s"}, temperature=0.2, timeout_seconds=30)
+                    models={"staff": "s"}, temperature=0.2, timeout_seconds=30,
+                    max_concurrency=2)
     client = LMStudioClient.from_config(cfg)
     assert client.base_url == "http://x/v1"
     assert client.api_key == "k"
     assert client.timeout == 30
+    assert client.max_concurrency == 2
     assert client._model_for("staff") == "s"
     assert client._model_for("kluge") == "m"
+
+
+def test_max_concurrency_from_toml_and_env(tmp_path, monkeypatch):
+    path = tmp_path / "config.toml"
+    path.write_text("[llm]\nmax_concurrency = 4\n", encoding="utf-8")
+    assert load_config(path).max_concurrency == 4
+    monkeypatch.setenv("DIRECTIVE_LLM_MAX_CONCURRENCY", "1")
+    assert load_config(path).max_concurrency == 1
