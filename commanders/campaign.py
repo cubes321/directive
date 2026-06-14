@@ -14,14 +14,20 @@ keeps the whole campaign playable headlessly in tests.
 from __future__ import annotations
 
 import json
+import random
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from commanders.briefing import build_briefing
+from commanders.communique import (
+    BASE_CHANCE,
+    MAX_PER_TURN,
+    select_communique_authors,
+)
 from commanders.dossier import Dossier, load_dossiers
 from commanders.intent import soviet_directives
 from commanders.llm import LMStudioClient
-from commanders.prompts import build_system_prompt
+from commanders.prompts import build_persona_prompt, build_system_prompt
 from commanders.orchestrator import gather_orders
 from commanders.records import update_track_records
 from commanders.scripted import scripted_orders
@@ -35,11 +41,32 @@ DISMISSAL_BASE_COST = 2
 BENCH_ROLE = "(awaiting command)"
 
 
+def prose_from_reply(text: str) -> str:
+    """Conversational calls want prose, but a local model primed on the order
+    schema can still lapse into order-JSON. If so, recover the human-facing
+    line; otherwise return the text unchanged."""
+    stripped = text.strip()
+    if not (stripped.startswith("{") and stripped.endswith("}")):
+        return text
+    try:
+        data = json.loads(stripped)
+    except json.JSONDecodeError:
+        return text
+    if not isinstance(data, dict):
+        return text
+    for key in ("signal", "dispatch", "message", "communique"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return text
+
+
 @dataclass
 class TurnResult:
     report: TurnReport
     dispatches: list[dict]
     victory: dict | None = None
+    communiques: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -49,6 +76,7 @@ class Campaign:
     client: LMStudioClient | None = None
     player_side: str = "axis"
     political_capital: int = STARTING_POLITICAL_CAPITAL
+    communique_chance: float = BASE_CHANCE
 
     @classmethod
     def new(cls, data_dir: Path, client: LMStudioClient | None = None) -> Campaign:
@@ -113,9 +141,60 @@ class Campaign:
         self.state.dispatches.append(staff_dispatch)
         dispatches.append(staff_dispatch)
 
+        communiques = await self._communiques(report)
+
         return TurnResult(
-            report=report, dispatches=dispatches, victory=check_victory(self.state)
+            report=report,
+            dispatches=dispatches,
+            victory=check_victory(self.state),
+            communiques=communiques,
         )
+
+    async def _communiques(self, report: TurnReport) -> list[dict]:
+        """Occasionally, a commander volunteers an unsolicited signal. Stored as
+        an unprompted line in his conversation thread (so the player can reply
+        and it colours his next briefing) and surfaced for the turn-start pop-up."""
+        rng = random.Random(self.state.seed * 7919 + self.state.turn)
+        authors = select_communique_authors(
+            self.state, self.dossiers, report, self.player_side, rng,
+            base_chance=self.communique_chance, max_count=MAX_PER_TURN,
+        )
+        out: list[dict] = []
+        for cid, salient in authors:
+            text = await self._one_communique(cid, salient)
+            if not text:
+                continue
+            self.state.conversations.setdefault(cid, []).append(
+                {"turn": self.state.turn, "role": "commander", "text": text, "unprompted": True}
+            )
+            out.append({"commander": cid, "name": self.dossiers[cid].name, "text": text})
+        return out
+
+    async def _one_communique(self, commander_id: str, salient: list[str]) -> str:
+        dossier = self.dossiers[commander_id]
+        situation = "; ".join(salient) if salient else "no single event stands out"
+        if self.client is None:
+            return f"({dossier.name} signals unprompted: {situation}.)"
+        system = (
+            build_persona_prompt(dossier)
+            + "\n\nYou are sending an UNSOLICITED signal to your theater commander "
+            "- he did not ask. Say what is on your mind as this man would: a "
+            "warning, a request, a boast, a complaint, or a suggestion. Reply with "
+            "the message only - plain prose, no JSON, under 120 words, in "
+            "character.\n\nWHAT PROMPTS YOU NOW: "
+            + situation
+            + "\n\nYOUR CURRENT SITUATION:\n"
+            + build_briefing(self.state, commander_id)
+        )
+        thread = self.state.conversations.get(commander_id, [])
+        messages = [{"role": "system", "content": system}]
+        for line in thread[-6:]:
+            role = "user" if line["role"] == "player" else "assistant"
+            messages.append({"role": role, "content": line["text"]})
+        messages.append(
+            {"role": "user", "content": "Send your unprompted signal now, in your own words."}
+        )
+        return prose_from_reply(await self.client.request_text(messages, role=commander_id))
 
     def _staff_facts(self, report: TurnReport) -> list[str]:
         """Player-side view of the week, as terse factual lines."""
@@ -181,12 +260,12 @@ class Campaign:
             reply = f"({dossier.name} acknowledges your signal.)"
         else:
             system = (
-                build_system_prompt(dossier)
+                build_persona_prompt(dossier)
                 + "\n\nYou are now in a direct signal exchange with your theater "
                 "commander. This is conversation, not an orders transmission: "
-                "reply in character, in plain text, under 150 words. Speak your "
-                "mind as this man would - what you see, what you need, what you "
-                "think of his intentions.\n\nYOUR CURRENT SITUATION:\n"
+                "reply in character, in plain prose (no JSON), under 150 words. "
+                "Speak your mind as this man would - what you see, what you need, "
+                "what you think of his intentions.\n\nYOUR CURRENT SITUATION:\n"
                 + build_briefing(self.state, commander_id)
             )
             messages = [{"role": "system", "content": system}]
@@ -194,7 +273,7 @@ class Campaign:
                 role = "user" if line["role"] == "player" else "assistant"
                 messages.append({"role": role, "content": line["text"]})
             messages.append({"role": "user", "content": message})
-            reply = await self.client.request_text(messages, role=commander_id)
+            reply = prose_from_reply(await self.client.request_text(messages, role=commander_id))
             if not reply:
                 reply = f"({dossier.name} does not respond; the line crackles.)"
 

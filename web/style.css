@@ -421,4 +421,48 @@ main { flex: 1; display: flex; min-height: 0; }
 .verdict-reason { font-family: var(--font-type); font-size: 14px; line-height: 1.6; margin-bottom: 22px; }
 .verdict-card .ghost-btn { color: var(--ink); border-color: #8d8264; }
 
+/* unprompted communiqué pop-up */
+#communique {
+  position: fixed; inset: 0; z-index: 115;
+  background: rgba(10, 9, 5, .82);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.communique-card {
+  position: relative; max-width: 560px; width: calc(100% - 80px);
+  padding: 30px 40px 26px;
+  background: var(--bone); color: var(--ink);
+  border: 1px solid #8d8264;
+  box-shadow: 6px 8px 0 rgba(0,0,0,.45), 0 40px 100px rgba(0,0,0,.8);
+}
+.communique-card::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: repeating-linear-gradient(90deg, var(--enemy) 0 8px, transparent 8px 16px);
+  opacity: .5;
+}
+.communique-stamp {
+  position: absolute; top: 14px; right: 16px;
+  font-family: var(--font-display); font-size: 12px; letter-spacing: 2px;
+  color: rgba(176,48,48,.7); border: 2px solid rgba(176,48,48,.55);
+  padding: 2px 8px; transform: rotate(4deg);
+}
+.communique-head {
+  font-family: var(--font-display); font-size: 22px; letter-spacing: 4px;
+  color: var(--ink); margin-bottom: 14px;
+}
+.communique-msg { margin-bottom: 14px; }
+.communique-from { font-family: var(--font-display); font-size: 19px; letter-spacing: 1.5px; }
+.communique-role { font-family: var(--font-ui); font-size: 11px; letter-spacing: 1.5px; color: #7a6b49; margin-bottom: 8px; }
+.communique-body {
+  font-family: var(--font-type); font-size: 13.5px; line-height: 1.55; white-space: pre-wrap;
+}
+.communique-actions { display: flex; gap: 14px; align-items: center; margin-top: 18px; }
+.communique-card .ghost-btn { color: var(--ink); border-color: #8d8264; }
+
+.chat-line.unprompted b { color: var(--enemy-deep); }
+.unprompted-mark {
+  font-family: var(--font-ui); font-size: 9px; letter-spacing: 1px;
+  color: var(--enemy-deep); opacity: .8;
+}
+
 .hidden { display: none !important; }

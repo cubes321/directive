@@ -83,6 +83,69 @@ async def test_save_and_load_round_trip(tmp_path):
     assert loaded.dossiers["guderian"].track_record == campaign.dossiers["guderian"].track_record
 
 
+def test_prose_from_reply_unwraps_accidental_json():
+    from commanders.campaign import prose_from_reply
+
+    # plain prose is returned unchanged
+    assert prose_from_reply("The panzers must not halt.") == "The panzers must not halt."
+    # a model that lapses into order-JSON: pull the human-facing field
+    blob = '{"orders": [], "dispatch": "Forward!", "signal": "My fuel is gone.", "reasoning": "x"}'
+    assert prose_from_reply(blob) == "My fuel is gone."
+    # dispatch is used when there is no signal field
+    assert prose_from_reply('{"orders": [], "dispatch": "Forward!"}') == "Forward!"
+    # JSON without a usable text field falls back to the raw string
+    weird = '{"foo": 1}'
+    assert prose_from_reply(weird) == weird
+
+
+async def test_communique_fires_and_is_stored_and_answerable():
+    campaign = make_campaign()
+    campaign.communique_chance = 1.0  # force one this turn
+    result = await campaign.play_turn({})
+    assert len(result.communiques) == 1
+    c = result.communiques[0]
+    assert c["text"] and c["name"]
+    cid = c["commander"]
+    # stored as an unprompted commander line in his conversation thread
+    thread = campaign.state.conversations[cid]
+    assert thread[-1]["role"] == "commander"
+    assert thread[-1]["unprompted"] is True
+    # and the player can answer it through the normal channel
+    reply = await campaign.converse(cid, "Understood. Hold your flank.")
+    assert reply
+    assert campaign.state.conversations[cid][-2]["text"] == "Understood. Hold your flank."
+
+
+async def test_no_communique_when_chance_zero():
+    campaign = make_campaign()
+    campaign.communique_chance = 0.0
+    result = await campaign.play_turn({})
+    assert result.communiques == []
+
+
+async def test_communique_without_client_still_produces_text():
+    campaign = Campaign.new(DATA_DIR)  # no client
+    campaign.communique_chance = 1.0
+    result = await campaign.play_turn({})
+    assert len(result.communiques) == 1
+    assert result.communiques[0]["text"]
+
+
+async def test_unprompted_flag_survives_save_round_trip(tmp_path):
+    campaign = make_campaign()
+    campaign.communique_chance = 1.0
+    await campaign.play_turn({})
+    path = tmp_path / "save.json"
+    campaign.save(path)
+    loaded = Campaign.load(path)
+    assert loaded.state.conversations == campaign.state.conversations
+    assert any(
+        line.get("unprompted")
+        for thread in loaded.state.conversations.values()
+        for line in thread
+    )
+
+
 async def test_turn_ends_with_a_chief_of_staff_report():
     campaign = make_campaign()
     result = await campaign.play_turn({"guderian": "Forward."})

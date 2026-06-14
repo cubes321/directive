@@ -39,6 +39,7 @@ class Session:
         self.use_llm = True
         self.model: str | None = None  # explicit override; None = config.toml
         self.last_report: TurnReport | None = None
+        self.last_communiques: list = []
 
     def _client(self) -> LMStudioClient | None:
         if not self.use_llm:
@@ -52,6 +53,7 @@ class Session:
               model: str | None = None) -> None:
         self.campaign = None
         self.last_report = None
+        self.last_communiques = []
         self.use_llm = use_llm
         self.model = model
         if save_path is not None:
@@ -60,11 +62,13 @@ class Session:
     def new_game(self) -> Campaign:
         self.campaign = Campaign.new(DATA_DIR, client=self._client())
         self.last_report = None
+        self.last_communiques = []
         return self.campaign
 
     def reload(self) -> Campaign:
         self.campaign = Campaign.load(self.save_path, client=self._client())
         self.last_report = None
+        self.last_communiques = []
         return self.campaign
 
     def require_campaign(self) -> Campaign:
@@ -180,6 +184,7 @@ def snapshot(session: Session) -> dict:
             if cid in own_commander_ids
         },
         "last_report": _report_dict(session.last_report),
+        "communiques": session.last_communiques,
         "victory": check_victory(state),
     }
 
@@ -218,6 +223,7 @@ async def end_turn():
     except LMStudioUnavailable as e:
         raise HTTPException(503, str(e))
     session.last_report = result.report
+    session.last_communiques = result.communiques
     campaign.save(session.save_path)
     return snapshot(session)
 

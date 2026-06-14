@@ -76,6 +76,23 @@ async def test_snapshot_survives_save_with_stale_map_data(api):
     assert isinstance(moscow["x"], (int, float))
 
 
+async def test_new_game_has_no_communiques(api):
+    snap = (await api.post("/api/game/new")).json()
+    assert snap["communiques"] == []
+
+
+async def test_end_turn_surfaces_communique(api):
+    await api.post("/api/game/new")
+    session = get_session()
+    session.campaign.communique_chance = 1.0  # force one
+    snap = (await api.post("/api/game/end-turn")).json()
+    assert len(snap["communiques"]) == 1
+    assert snap["communiques"][0]["text"]
+    # a fresh game clears it again
+    snap2 = (await api.post("/api/game/new")).json()
+    assert snap2["communiques"] == []
+
+
 async def test_snapshot_reports_weather_and_victory(api):
     await api.post("/api/game/new")
     snap = (await api.get("/api/game")).json()

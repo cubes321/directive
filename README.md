@@ -54,6 +54,12 @@ a dry assessment of what actually happened. Use the ⚡ SIGNAL button on a
 commander's card to talk to him directly — recent exchanges are quoted in his
 next briefing, so a conversation is a real channel of influence, not flavor.
 
+Occasionally a commander will reach out *first*: a notable week (a victory, an
+encirclement, a supply crisis) may prompt an unsolicited communiqué that greets
+you as a pop-up when the new turn opens, and the bold and headstrong are
+likelier to speak. Reply straight from the pop-up to fold it into that
+commander's SIGNAL thread.
+
 ## Configuring the AI backend
 
 The game talks to any **OpenAI-compatible chat-completions endpoint**. With no

@@ -388,14 +388,31 @@ function renderChatLog(commanderId) {
   }
   for (const line of thread) {
     const div = document.createElement("div");
-    div.className = "chat-line " + line.role;
+    div.className = "chat-line " + line.role + (line.unprompted ? " unprompted" : "");
     const who = document.createElement("b");
     who.textContent = line.role === "player" ? "YOU" : commanderSurname(commanderId);
     div.appendChild(who);
+    if (line.unprompted) {
+      const mark = document.createElement("span");
+      mark.className = "unprompted-mark";
+      mark.textContent = " ✦ unprompted";
+      div.appendChild(mark);
+    }
     div.appendChild(document.createTextNode(" " + line.text));
     log.appendChild(div);
   }
   log.scrollTop = log.scrollHeight;
+}
+
+function openSignalDrawer(commanderId) {
+  document.querySelector('[data-tab="commanders"]').click();
+  const box = document.querySelector(`[data-chatbox="${CSS.escape(commanderId)}"]`);
+  if (!box) return;
+  box.classList.remove("hidden");
+  renderChatLog(commanderId);
+  box.scrollIntoView({ behavior: "smooth", block: "center" });
+  const input = box.querySelector("input");
+  if (input) input.focus();
 }
 
 async function sendSignal(commanderId) {
@@ -573,6 +590,46 @@ function renderVerdict() {
   $("#verdict-reason").textContent = v.reason;
 }
 
+const COMMUNIQUE_SEEN_KEY = "directive.communiqueSeenTurn";
+
+function renderCommuniques() {
+  const modal = $("#communique");
+  const list = snap.communiques || [];
+  // suppressed when the campaign is over, when there is nothing to show, or
+  // when this turn's communiqués have already been seen (survives a refresh)
+  const seen = Number(localStorage.getItem(COMMUNIQUE_SEEN_KEY) || 0);
+  if (snap.victory || !list.length || seen >= snap.turn) {
+    modal.classList.add("hidden");
+    return;
+  }
+  const container = $("#communique-list");
+  container.textContent = "";
+  for (const c of list) {
+    const cmd = snap.commanders.find((x) => x.id === c.commander);
+    const card = document.createElement("div");
+    card.className = "communique-msg";
+    const from = document.createElement("div");
+    from.className = "communique-from";
+    from.textContent = c.name;
+    const role = document.createElement("div");
+    role.className = "communique-role";
+    role.textContent = cmd ? cmd.role : "";
+    const body = document.createElement("div");
+    body.className = "communique-body";
+    body.textContent = c.text;
+    card.append(from, role, body);
+    container.appendChild(card);
+  }
+  // REPLY targets the first (currently only) communiqué's author
+  $("#btn-communique-reply").dataset.target = list[0].commander;
+  modal.classList.remove("hidden");
+}
+
+function dismissCommuniques() {
+  localStorage.setItem(COMMUNIQUE_SEEN_KEY, String(snap.turn));
+  $("#communique").classList.add("hidden");
+}
+
 function renderAll() {
   renderHeader();
   renderMap();
@@ -581,6 +638,7 @@ function renderAll() {
   renderOob();
   renderBattles();
   renderVerdict();
+  renderCommuniques();
 }
 
 document.querySelectorAll(".tab").forEach((tab) => {
@@ -591,6 +649,13 @@ document.querySelectorAll(".tab").forEach((tab) => {
     $("#tab-" + tab.dataset.tab).classList.add("active");
   });
 });
+
+$("#btn-communique-reply").addEventListener("click", (ev) => {
+  const target = ev.currentTarget.dataset.target;
+  dismissCommuniques();
+  if (target) openSignalDrawer(target);
+});
+$("#btn-communique-dismiss").addEventListener("click", dismissCommuniques);
 
 $("#btn-endturn").addEventListener("click", endTurn);
 $("#btn-verdict-new").addEventListener("click", async () => {

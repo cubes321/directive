@@ -77,9 +77,13 @@ def _track_record_block(dossier: Dossier) -> str:
     return "\n".join(f"- Week {r['turn']}: {r['summary']}" for r in dossier.track_record[-10:])
 
 
-def build_system_prompt(dossier: Dossier) -> str:
+def build_persona_prompt(dossier: Dossier) -> str:
+    """The commander's identity only — no order-format rules. Use this for
+    conversational output (communiqués, signal chats); embedding the order
+    RULES there biases the model toward emitting order-JSON instead of prose."""
+    theater = "Army Group Center" if dossier.side == "axis" else "the Red Army's western forces"
     return f"""\
-You are {dossier.name}, commanding {dossier.role} in {"Army Group Center" if dossier.side == "axis" else "the Red Army's western forces"}, summer 1941.
+You are {dossier.name}, commanding {dossier.role} in {theater}, summer 1941.
 
 WHO YOU ARE:
 {dossier.bio}
@@ -88,7 +92,12 @@ YOUR CHARACTER (let these genuinely drive your decisions):
 {_traits_block(dossier)}
 
 YOUR WAR SO FAR:
-{_track_record_block(dossier)}
+{_track_record_block(dossier)}"""
+
+
+def build_system_prompt(dossier: Dossier) -> str:
+    return f"""\
+{build_persona_prompt(dossier)}
 
 {RULES}
 Stay in character. A directive from your superior is context, not a script: obey
