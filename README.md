@@ -38,8 +38,16 @@ lms load qwen/qwen3.6-35b-a3b -y
 ```
 
 Open http://localhost:8000. Write directives on the COMMANDERS tab, press
-ISSUE ORDERS, and read what your generals have to say about it. A full turn
-(nine commanders thinking) takes a couple of minutes on local hardware.
+ISSUE ORDERS, and read what your generals have to say about it. The FORCES tab
+lists your order of battle (hover a corps to find it on the map), and BATTLE
+REPORTS covers the week's fighting.
+
+A full turn means every commander on both sides — nine of them — plus your
+chief of staff each think in character. On a single 16 GB GPU running a 35B
+model that is roughly 6–8 minutes per turn; the game queues requests to match
+your server's parallelism so every commander reliably reports rather than some
+silently timing out. To go faster, put quiet sectors and the staff report on a
+smaller model (see *Per-role models*) or point the game at a beefier backend.
 
 Each week your chief of staff (Genmaj. von Greiffenberg) opens the inbox with
 a dry assessment of what actually happened. Use the ⚡ SIGNAL button on a
@@ -131,6 +139,9 @@ it reads the file when it builds the client.
 | `trace_campaign.py` | fast scripted campaign trace (no LLM) |
 | `print_briefing.py guderian` | show exactly what a commander sees |
 | `analyze_logs.py campaign` | tally LLM outcomes and failure reasons from `logs/` |
+| `analyze_failures.py campaign` | per-commander outcome breakdown and empty-response counts |
+| `probe_concurrency.py` | measure your backend's latency under load (sequential vs gated) |
+| `verify_turn.py` | run one full live turn and report per-commander outcomes |
 
 ## Tests
 
