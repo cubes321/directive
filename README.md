@@ -98,6 +98,27 @@ the railhead reaches it. Watch a corps's supply there and on the FORCES tab;
 your commanders will complain when it bites. (Tunable in `engine/supply.py`:
 `RAILHEAD_SPEED`, `TRUCK_LEG_PENALTY`.)
 
+## OKH and your standing
+
+OKH sets the pace. Timed objectives arrive on a schedule — *Close the pocket at
+Minsk by week 4*, *Seize Smolensk by week 8*, and ultimately *Take Moscow before
+the winter* — and appear in a bar above the side panel with a countdown, plus a
+directive in your inbox. Meet one and your standing with OKH rises; let a
+deadline pass and it falls.
+
+Some demands are **at odds with the drive on Moscow**: a diversion dilemma (the
+historical wheel south to Kiev) asks you to peel a panzer group off the main
+axis. Accept it and the cost is yours to pay — you must redirect commanders away
+from Moscow to fulfil it — or decline and take the hit to your standing. There
+is no free choice.
+
+Your **standing with OKH is a survival meter** (the bars in the header). It is
+spent relieving commanders and lost by failing objectives, and replenished by
+meeting them. If it reaches zero, OKH relieves *you* of command and the campaign
+ends. Neglect the objectives and you will be sacked in a few weeks; deliver, and
+you buy the political capital to run your generals as you see fit. (Schedule in
+`data/objectives_1941.json`; logic in `engine/objectives.py`.)
+
 ## Configuring the AI backend
 
 The game talks to any **OpenAI-compatible chat-completions endpoint**. With no
