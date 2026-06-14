@@ -28,7 +28,12 @@ from dataclasses import dataclass, field
 from engine.combat import resolve_combat
 from engine.orders import CommanderOrders
 from engine.state import GameState
-from engine.supply import compute_supply
+from engine.supply import (
+    RAILHEAD_SPEED,
+    advance_railhead,
+    compute_supply,
+    default_railhead_on_load,
+)
 from engine.units import Corps
 from engine.weather import weather_for_turn
 
@@ -164,11 +169,21 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         else:
             corps.recover(organization=REST_ORG_RECOVERY)
 
-    # 4. Supply tick, per side
+    # 4. Supply tick, per side: advance the railhead, then trace supply over it
     living = state.living_corps()
     for side, sources in state.supply_sources.items():
+        if side in state.railheads:
+            converted = set(state.railheads[side])
+        else:  # a save predating the railhead system: reconstruct a fair lag
+            converted = default_railhead_on_load(state.game_map, state.control, side, sources)
+        converted = advance_railhead(
+            state.game_map, state.control, side, converted, RAILHEAD_SPEED
+        )
+        state.railheads[side] = sorted(converted)
         side_corps = [c for c in living if c.side == side]
-        for cid, value in compute_supply(state.game_map, state.control, sources, side_corps).items():
+        for cid, value in compute_supply(
+            state.game_map, state.control, sources, side_corps, converted
+        ).items():
             state.corps[cid].supply = value
 
     state.turn += 1

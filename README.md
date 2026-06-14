@@ -60,6 +60,18 @@ you as a pop-up when the new turn opens, and the bold and headstrong are
 likelier to speak. Reply straight from the pop-up to fold it into that
 commander's SIGNAL thread.
 
+## Supply and the railhead
+
+Supply traces from your rear sources to each corps. The catch — and the heart of
+Barbarossa — is that **captured enemy rail is not usable until your railhead
+converts it** (different gauge). The railhead crawls forward only about one
+region per turn, so a panzer group that races ahead outruns its supply: corps
+beyond the railhead lose supply with every region of lead, fight at reduced
+power, and (deep enough) crawl. Pause, or let the infantry and rail catch up,
+and supply recovers. Watch a corps's supply on the FORCES tab and the map; your
+commanders will complain when it bites. (Tunable in `engine/supply.py`:
+`RAILHEAD_SPEED`, `TRUCK_LEG_PENALTY`.)
+
 ## Configuring the AI backend
 
 The game talks to any **OpenAI-compatible chat-completions endpoint**. With no

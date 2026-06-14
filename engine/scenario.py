@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 
 from engine.state import GameState
+from engine.supply import initial_railhead
 
 DEFAULT_SEED = 1941
 
@@ -23,7 +24,7 @@ def load_scenario(data_dir: Path, seed: int = DEFAULT_SEED) -> GameState:
     control = {
         r["id"]: ("axis" if r["id"] in axis_starts else "soviet") for r in map_data["regions"]
     }
-    return GameState.from_dict(
+    state = GameState.from_dict(
         {
             "map": map_data,
             "corps": oob["corps"],
@@ -34,3 +35,9 @@ def load_scenario(data_dir: Path, seed: int = DEFAULT_SEED) -> GameState:
             "reinforcements": oob.get("reinforcements", []),
         }
     )
+    # the railhead starts at the pre-war rail network behind each side's front
+    for side, srcs in state.supply_sources.items():
+        state.railheads[side] = sorted(
+            initial_railhead(state.game_map, state.control, side, srcs)
+        )
+    return state

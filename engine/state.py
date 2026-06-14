@@ -31,6 +31,7 @@ class GameState:
     reinforcements: list[dict] = field(default_factory=list)  # {turn, corps: {...}}
     conversations: dict[str, list[dict]] = field(default_factory=dict)
     # commander -> [{turn, role: player|commander, text}]
+    railheads: dict[str, list[str]] = field(default_factory=dict)  # side -> converted region ids
 
     @property
     def date(self) -> datetime.date:
@@ -60,6 +61,7 @@ class GameState:
             dispatches=list(data.get("dispatches", [])),
             reinforcements=list(data.get("reinforcements", [])),
             conversations={k: list(v) for k, v in data.get("conversations", {}).items()},
+            railheads={k: list(v) for k, v in data.get("railheads", {}).items()},
         )
 
     def to_dict(self) -> dict:
@@ -75,4 +77,5 @@ class GameState:
             "dispatches": list(self.dispatches),
             "reinforcements": list(self.reinforcements),
             "conversations": {k: list(v) for k, v in self.conversations.items()},
+            "railheads": {k: list(v) for k, v in self.railheads.items()},
         }
