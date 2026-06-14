@@ -4,7 +4,11 @@
 # api_key placed there never reaches version control. Every value can also be
 # overridden with an environment variable:
 #   DIRECTIVE_LLM_BASE_URL, DIRECTIVE_LLM_API_KEY, DIRECTIVE_LLM_MODEL,
-#   DIRECTIVE_LLM_TEMPERATURE, DIRECTIVE_LLM_TIMEOUT
+#   DIRECTIVE_LLM_TEMPERATURE, DIRECTIVE_LLM_TIMEOUT,
+#   DIRECTIVE_LLM_MAX_CONCURRENCY
+#
+# Every setting below is optional — delete any line to use its built-in
+# default (shown here as the value). An absent config.toml works fine.
 
 [llm]
 # Any OpenAI-compatible chat-completions endpoint:
