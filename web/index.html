@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Staatliches&family=Special+Elite&family=Archivo+Narrow:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <div id="grain"></div>
@@ -62,6 +62,7 @@
   </section>
 
   <section id="side-panel">
+    <div id="objectives-bar"></div>
     <nav id="tabs">
       <button class="tab active" data-tab="dispatches">DISPATCHES</button>
       <button class="tab" data-tab="commanders">COMMANDERS</button>
@@ -98,6 +99,19 @@
   </div>
 </div>
 
+<div id="diversion" class="hidden">
+  <div class="communique-card">
+    <div class="communique-stamp">OKH · GEHEIM</div>
+    <div class="communique-head">A DEMAND FROM OKH</div>
+    <div id="diversion-body"></div>
+    <div class="communique-actions">
+      <button id="btn-diversion-accept" class="stamp-btn">ACCEPT</button>
+      <button id="btn-diversion-decline" class="stamp-btn decline">DECLINE</button>
+      <button id="btn-diversion-later" class="ghost-btn">DECIDE LATER</button>
+    </div>
+  </div>
+</div>
+
 <div id="verdict" class="hidden">
   <div class="verdict-card">
     <div class="verdict-kind" id="verdict-kind"></div>
@@ -107,6 +121,6 @@
   </div>
 </div>
 
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

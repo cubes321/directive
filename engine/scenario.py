@@ -19,6 +19,7 @@ DEFAULT_SEED = 1941
 def load_scenario(data_dir: Path, seed: int = DEFAULT_SEED) -> GameState:
     map_data = json.loads((data_dir / "map_agc.json").read_text(encoding="utf-8"))
     oob = json.loads((data_dir / "oob_1941.json").read_text(encoding="utf-8"))
+    objectives = json.loads((data_dir / "objectives_1941.json").read_text(encoding="utf-8"))
 
     axis_starts = {c["location"] for c in oob["corps"] if c["side"] == "axis"}
     control = {
@@ -33,6 +34,7 @@ def load_scenario(data_dir: Path, seed: int = DEFAULT_SEED) -> GameState:
             "turn": 1,
             "seed": seed,
             "reinforcements": oob.get("reinforcements", []),
+            "objectives": objectives.get("objectives", []),
         }
     )
     # the railhead starts at the pre-war rail network behind each side's front

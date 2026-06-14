@@ -76,6 +76,45 @@ async def test_snapshot_survives_save_with_stale_map_data(api):
     assert isinstance(moscow["x"], (int, float))
 
 
+async def test_snapshot_exposes_active_objectives_with_countdown(api):
+    await api.post("/api/game/new")
+    snap = (await api.get("/api/game")).json()
+    assert snap["objectives"], "expected the opening OKH objective to be visible"
+    minsk = next(o for o in snap["objectives"] if o["id"] == "take_minsk")
+    assert minsk["status"] == "active"
+    assert minsk["turns_left"] == minsk["deadline_turn"] - snap["turn"]
+    # not-yet-issued objectives stay hidden
+    assert not any(o["id"] == "take_moscow" for o in snap["objectives"])
+
+
+async def test_objective_decision_endpoint(api):
+    await api.post("/api/game/new")
+    session = get_session()
+    # force a pending diversion to decide on
+    session.campaign.state.objectives.append({
+        "id": "divert_test", "kind": "divert", "title": "South", "detail": "",
+        "issued_turn": 1, "deadline_turn": 9, "target": "gomel",
+        "reward": 5, "penalty": 5, "decline_penalty": 2, "status": "pending",
+    })
+    before = session.campaign.political_capital
+    r = await api.post("/api/game/objective", json={"id": "divert_test", "accept": False})
+    assert r.status_code == 200
+    assert r.json()["political_capital"] == before - 2
+    # deciding it again is rejected
+    bad = await api.post("/api/game/objective", json={"id": "divert_test", "accept": True})
+    assert bad.status_code == 400
+
+
+async def test_relieved_verdict_surfaces_in_snapshot(api):
+    await api.post("/api/game/new")
+    session = get_session()
+    session.campaign.political_capital = 0
+    snap = (await api.get("/api/game")).json()
+    assert snap["victory"]["kind"] == "relieved"
+    r = await api.post("/api/game/end-turn")
+    assert r.status_code == 409
+
+
 async def test_snapshot_exposes_player_railhead(api):
     snap = (await api.post("/api/game/new")).json()
     assert isinstance(snap["railhead"], list)

@@ -45,3 +45,17 @@ def test_both_sides_start_fully_supplied_on_rail():
     s = load_scenario(DATA_DIR)
     starved = [c.id for c in s.corps.values() if c.supply < 100]
     assert starved == []
+
+
+def test_scenario_loads_okh_objectives():
+    s = load_scenario(DATA_DIR)
+    assert s.objectives, "expected an authored OKH objective schedule"
+    assert all(o["status"] == "scheduled" for o in s.objectives)
+    # every objective targets a real region and has a sane deadline window
+    for o in s.objectives:
+        assert o["target"] in s.game_map.regions, o["id"]
+        assert o["deadline_turn"] >= o["issued_turn"]
+    # the schedule includes at least one diversion dilemma and a Moscow finale
+    kinds = {o["kind"] for o in s.objectives}
+    assert "capture" in kinds and "divert" in kinds
+    assert any(o["target"] == "moscow" for o in s.objectives)

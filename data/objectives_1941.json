@@ -1,0 +1,65 @@
+{
+  "objectives": [
+    {
+      "id": "take_minsk",
+      "kind": "capture",
+      "title": "Close the Bialystok-Minsk pocket",
+      "detail": "OKH expects the frontier armies encircled and Minsk in German hands within a fortnight. A swift double envelopment, Herr Feldmarschall.",
+      "issued_turn": 1,
+      "deadline_turn": 4,
+      "target": "minsk",
+      "reward": 3,
+      "penalty": 3,
+      "status": "scheduled"
+    },
+    {
+      "id": "take_smolensk",
+      "kind": "capture",
+      "title": "Seize Smolensk, the gate to Moscow",
+      "detail": "The land bridge between the Dvina and the Dnieper must be forced and Smolensk taken before the Soviets can dig in.",
+      "issued_turn": 4,
+      "deadline_turn": 9,
+      "target": "smolensk",
+      "reward": 4,
+      "penalty": 4,
+      "status": "scheduled"
+    },
+    {
+      "id": "divert_south",
+      "kind": "divert",
+      "title": "Wheel south to take Gomel and shield the flank",
+      "detail": "The Fuehrer wants the industrial south and the Pripyat flank cleared before any further drive east. Detach a panzer group to take Gomel. The panzer generals will protest that this squanders the run on Moscow - decide.",
+      "issued_turn": 9,
+      "deadline_turn": 14,
+      "target": "gomel",
+      "reward": 5,
+      "penalty": 5,
+      "decline_penalty": 3,
+      "status": "scheduled"
+    },
+    {
+      "id": "take_bryansk",
+      "kind": "capture",
+      "title": "Take Bryansk and open the southern approach",
+      "detail": "Secure Bryansk to anchor the right wing of the final advance on the capital.",
+      "issued_turn": 12,
+      "deadline_turn": 17,
+      "target": "bryansk",
+      "reward": 3,
+      "penalty": 3,
+      "status": "scheduled"
+    },
+    {
+      "id": "take_moscow",
+      "kind": "capture",
+      "title": "Take Moscow before the winter closes",
+      "detail": "Everything has led to this. Moscow must fall before the snows make a graveyard of the army group.",
+      "issued_turn": 16,
+      "deadline_turn": 24,
+      "target": "moscow",
+      "reward": 8,
+      "penalty": 6,
+      "status": "scheduled"
+    }
+  ]
+}

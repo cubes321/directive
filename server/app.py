@@ -23,7 +23,6 @@ from commanders.llm import LMStudioClient, LMStudioUnavailable
 from engine.fog import visible_enemy_contacts
 from engine.supply import default_railhead_on_load
 from engine.turn import TurnReport
-from engine.victory import check_victory
 
 ROOT = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data"
@@ -177,6 +176,13 @@ def snapshot(session: Session) -> dict:
             )
         )
 
+    # OKH objectives the player can currently see (issued, not yet closed)
+    visible_objectives = [
+        {**o, "turns_left": o["deadline_turn"] - state.turn}
+        for o in state.objectives
+        if o["status"] in ("active", "pending", "accepted")
+    ]
+
     vp = {"axis": 0, "soviet": 0}
     for r in regions:
         vp[r["control"]] += r["victory_points"]
@@ -206,7 +212,8 @@ def snapshot(session: Session) -> dict:
         },
         "last_report": _report_dict(session.last_report),
         "communiques": session.last_communiques,
-        "victory": check_victory(state),
+        "objectives": visible_objectives,
+        "victory": campaign.current_verdict(),
     }
 
 
@@ -237,7 +244,7 @@ async def set_directives(directives: dict[str, str]):
 async def end_turn():
     session = get_session()
     campaign = session.require_campaign()
-    if check_victory(campaign.state) is not None:
+    if campaign.current_verdict() is not None:
         raise HTTPException(409, "the campaign is over")
     try:
         result = await campaign.play_turn({})
@@ -277,6 +284,18 @@ async def converse(body: dict):
         raise HTTPException(503, str(e))
     campaign.save(session.save_path)
     return {"reply": reply}
+
+
+@app.post("/api/game/objective")
+async def decide_objective(body: dict):
+    session = get_session()
+    campaign = session.require_campaign()
+    try:
+        result = campaign.decide_diversion(body["id"], bool(body["accept"]))
+    except (ValueError, KeyError) as e:
+        raise HTTPException(400, str(e))
+    campaign.save(session.save_path)
+    return {**result, "political_capital": campaign.political_capital}
 
 
 @app.get("/api/game/briefing/{commander}")

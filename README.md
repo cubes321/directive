@@ -28,6 +28,10 @@ never moved a battalion. He wrote directives and read dispatches. So do you.
 - **Chief-of-staff report** opening each week's inbox with a dry assessment.
 - **Personnel command.** Hire, relieve, and replace commanders at a cost in
   standing with OKH.
+- **OKH objectives & a survival clock.** Timed demands (take Minsk by week 4,
+  Smolensk by week 8…) bank or drain your standing, and *diversion dilemmas* —
+  the historical pull south to Kiev — force you to choose between OKH and your
+  drive on Moscow. Let your standing hit zero and you are relieved of command.
 - **Operational map + FORCES order of battle**, with fog of war on the enemy.
 - **Railhead supply.** Captured rail must be converted before it carries supply;
   outrun your railhead and the spearhead starves. Drawn live on the map.

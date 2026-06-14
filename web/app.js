@@ -240,6 +240,13 @@ function renderDispatches() {
         <div class="from">Chief of Staff — Genmaj. von Greiffenberg</div>
         <div class="meta">WEEKLY STAFF ASSESSMENT · WEEK ${Number(d.turn)}</div>
         <div class="body"></div>`;
+    } else if (d.commander === "okh") {
+      card.className = "dispatch okh";
+      card.innerHTML = `
+        <div class="geheim">OKH</div>
+        <div class="from">Oberkommando des Heeres</div>
+        <div class="meta">DIRECTIVE · WEEK ${Number(d.turn)}</div>
+        <div class="body"></div>`;
     } else {
       const cmd = byName[d.commander];
       card.className = "dispatch";
@@ -589,12 +596,109 @@ function renderVerdict() {
   $("#verdict").classList.toggle("hidden", !v);
   $("#btn-endturn").disabled = !!v;
   if (!v) return;
-  $("#verdict-kind").textContent = `${v.kind.toUpperCase()} VICTORY — ${snap.date}`;
   const title = $("#verdict-title");
-  title.textContent = v.winner === "axis" ? "MOSCOW BECKONS NO MORE" : "THE FRONT HELD";
-  if (v.winner === "axis" && v.kind === "decisive") title.textContent = "MOSCOW HAS FALLEN";
-  title.className = "verdict-title " + v.winner;
+  if (v.kind === "relieved") {
+    $("#verdict-kind").textContent = `DISMISSED — ${snap.date}`;
+    title.textContent = "RELIEVED OF COMMAND";
+    title.className = "verdict-title soviet";
+  } else {
+    $("#verdict-kind").textContent = `${v.kind.toUpperCase()} VICTORY — ${snap.date}`;
+    title.textContent = v.winner === "axis" ? "MOSCOW BECKONS NO MORE" : "THE FRONT HELD";
+    if (v.winner === "axis" && v.kind === "decisive") title.textContent = "MOSCOW HAS FALLEN";
+    title.className = "verdict-title " + v.winner;
+  }
   $("#verdict-reason").textContent = v.reason;
+}
+
+/* ── OKH objectives ──────────────────────────────── */
+
+function renderObjectives() {
+  const bar = $("#objectives-bar");
+  bar.textContent = "";
+  const objectives = snap.objectives || [];
+  if (!objectives.length) {
+    bar.classList.add("hidden");
+    return;
+  }
+  bar.classList.remove("hidden");
+  const head = document.createElement("div");
+  head.className = "obj-head";
+  head.textContent = "OKH OBJECTIVES";
+  bar.appendChild(head);
+  for (const o of objectives) {
+    const row = document.createElement("div");
+    const left = Number(o.turns_left);
+    const pending = o.status === "pending";
+    row.className = "obj-row" + (pending ? " pending" : "") + (left <= 1 ? " urgent" : "");
+    const title = document.createElement("span");
+    title.className = "obj-title";
+    title.textContent = o.title;
+    const clock = document.createElement("span");
+    clock.className = "obj-clock";
+    clock.textContent = pending
+      ? "DECISION REQUIRED"
+      : `by wk ${o.deadline_turn} · ${left} left`;
+    row.append(title, clock);
+    if (pending) {
+      row.title = "Click to decide";
+      row.addEventListener("click", () => openDiversion(o.id));
+    }
+    bar.appendChild(row);
+  }
+}
+
+const DIVERSION_DEFERRED_KEY = "directive.diversionDeferred";
+
+function pendingDiversion() {
+  return (snap.objectives || []).find((o) => o.status === "pending");
+}
+
+function renderDiversion(force = false) {
+  const modal = $("#diversion");
+  const obj = pendingDiversion();
+  const deferred = localStorage.getItem(DIVERSION_DEFERRED_KEY) === (obj ? obj.id : "");
+  if (snap.victory || !obj || (deferred && !force)) {
+    modal.classList.add("hidden");
+    return;
+  }
+  const body = $("#diversion-body");
+  body.textContent = "";
+  const t = document.createElement("div");
+  t.className = "communique-from";
+  t.textContent = obj.title;
+  const detail = document.createElement("div");
+  detail.className = "communique-body";
+  detail.textContent = obj.detail || "";
+  const stakes = document.createElement("div");
+  stakes.className = "obj-stakes";
+  stakes.textContent =
+    `Accept: take ${obj.target} by week ${obj.deadline_turn} (+${obj.reward} standing, ` +
+    `−${obj.penalty} if you fail). Decline: −${obj.decline_penalty} standing now.`;
+  body.append(t, detail, stakes);
+  $("#btn-diversion-accept").dataset.id = obj.id;
+  $("#btn-diversion-decline").dataset.id = obj.id;
+  modal.classList.remove("hidden");
+}
+
+function openDiversion(id) {
+  localStorage.removeItem(DIVERSION_DEFERRED_KEY);
+  renderDiversion(true);
+}
+
+async function decideDiversion(id, accept) {
+  try {
+    await api("/api/game/objective", {
+      method: "POST",
+      body: JSON.stringify({ id, accept }),
+    });
+    localStorage.removeItem(DIVERSION_DEFERRED_KEY);
+    snap = await api("/api/game");
+    renderAll();
+    toast(accept ? "Diversion accepted. OKH is satisfied." : "Diversion declined. OKH takes note.",
+          accept);
+  } catch (e) {
+    toast(e.message);
+  }
 }
 
 const COMMUNIQUE_SEEN_KEY = "directive.communiqueSeenTurn";
@@ -640,12 +744,14 @@ function dismissCommuniques() {
 function renderAll() {
   renderHeader();
   renderMap();
+  renderObjectives();
   renderDispatches();
   renderCommanders();
   renderOob();
   renderBattles();
   renderVerdict();
   renderCommuniques();
+  renderDiversion();
 }
 
 document.querySelectorAll(".tab").forEach((tab) => {
@@ -663,6 +769,16 @@ $("#btn-communique-reply").addEventListener("click", (ev) => {
   if (target) openSignalDrawer(target);
 });
 $("#btn-communique-dismiss").addEventListener("click", dismissCommuniques);
+
+$("#btn-diversion-accept").addEventListener("click", (ev) =>
+  decideDiversion(ev.currentTarget.dataset.id, true));
+$("#btn-diversion-decline").addEventListener("click", (ev) =>
+  decideDiversion(ev.currentTarget.dataset.id, false));
+$("#btn-diversion-later").addEventListener("click", () => {
+  const obj = pendingDiversion();
+  if (obj) localStorage.setItem(DIVERSION_DEFERRED_KEY, obj.id);
+  $("#diversion").classList.add("hidden");
+});
 
 $("#btn-endturn").addEventListener("click", endTurn);
 $("#btn-verdict-new").addEventListener("click", async () => {

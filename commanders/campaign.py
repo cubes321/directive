@@ -31,6 +31,7 @@ from commanders.prompts import build_persona_prompt, build_system_prompt
 from commanders.orchestrator import gather_orders
 from commanders.records import update_track_records
 from commanders.scripted import scripted_orders
+from engine.objectives import advance_objectives, issue_due_objectives
 from engine.scenario import load_scenario
 from engine.state import GameState
 from engine.turn import TurnReport, resolve_turn
@@ -67,6 +68,14 @@ class TurnResult:
     dispatches: list[dict]
     victory: dict | None = None
     communiques: list[dict] = field(default_factory=list)
+    okh_events: list[dict] = field(default_factory=list)
+
+
+RELIEVED_VERDICT = {
+    "winner": "soviet",
+    "kind": "relieved",
+    "reason": "OKH has lost confidence in you. You are relieved of command.",
+}
 
 
 @dataclass
@@ -80,11 +89,24 @@ class Campaign:
 
     @classmethod
     def new(cls, data_dir: Path, client: LMStudioClient | None = None) -> Campaign:
-        return cls(
+        campaign = cls(
             state=load_scenario(data_dir),
             dossiers=load_dossiers(data_dir),
             client=client,
         )
+        campaign.refresh_objectives()  # OKH's opening directive greets the player
+        return campaign
+
+    def refresh_objectives(self) -> list[dict]:
+        """Issue any objectives now due (game start, on load) and post their
+        OKH dispatches, so they are visible and decidable before the turn runs."""
+        events = issue_due_objectives(self.state)
+        for event in events:
+            self.political_capital += event["capital_delta"]  # 0 for an issue
+            self.state.dispatches.append(
+                {"turn": self.state.turn, "commander": "okh", "text": event["text"]}
+            )
+        return events
 
     def active_commanders(self, side: str | None = None) -> list[str]:
         active = []
@@ -102,8 +124,31 @@ class Campaign:
             if d.side == side and not self.state.corps_for(cid)
         )
 
+    def current_verdict(self) -> dict | None:
+        """Campaign-level outcome: the OKH survival meter overrides the
+        military verdict, so running out of standing ends the game."""
+        if self.political_capital <= 0:
+            return dict(RELIEVED_VERDICT)
+        return check_victory(self.state)
+
+    def decide_diversion(self, objective_id: str, accept: bool) -> dict:
+        """Resolve a pending OKH diversion: accept it (it becomes a live
+        objective) or decline it (immediate hit to standing)."""
+        obj = next((o for o in self.state.objectives if o["id"] == objective_id), None)
+        if obj is None:
+            raise ValueError(f"unknown objective: {objective_id}")
+        if obj["kind"] != "divert" or obj["status"] != "pending":
+            raise ValueError(f"{objective_id} has no pending decision")
+        if accept:
+            obj["status"] = "accepted"
+            return {"accepted": True, "cost": 0}
+        obj["status"] = "declined"
+        cost = obj.get("decline_penalty", 0)
+        self.political_capital -= cost
+        return {"accepted": False, "cost": cost}
+
     async def play_turn(self, player_directives: dict[str, str]) -> TurnResult:
-        if check_victory(self.state) is not None:
+        if self.current_verdict() is not None:
             raise ValueError("the campaign is over")
         self.state.directives.update(player_directives)
         self.state.directives.update(soviet_directives(self.state))
@@ -141,13 +186,21 @@ class Campaign:
         self.state.dispatches.append(staff_dispatch)
         dispatches.append(staff_dispatch)
 
+        okh_events = advance_objectives(self.state, self.player_side)
+        for event in okh_events:
+            self.political_capital += event["capital_delta"]
+            okh_dispatch = {"turn": report.turn, "commander": "okh", "text": event["text"]}
+            self.state.dispatches.append(okh_dispatch)
+            dispatches.append(okh_dispatch)
+
         communiques = await self._communiques(report)
 
         return TurnResult(
             report=report,
             dispatches=dispatches,
-            victory=check_victory(self.state),
+            victory=self.current_verdict(),
             communiques=communiques,
+            okh_events=okh_events,
         )
 
     async def _communiques(self, report: TurnReport) -> list[dict]:
@@ -327,10 +380,12 @@ class Campaign:
     @classmethod
     def load(cls, path: Path, client: LMStudioClient | None = None) -> Campaign:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        return cls(
+        campaign = cls(
             state=GameState.from_dict(payload["state"]),
             dossiers={d["id"]: Dossier.from_dict(d) for d in payload["dossiers"]},
             client=client,
             player_side=payload.get("player_side", "axis"),
             political_capital=payload.get("political_capital", STARTING_POLITICAL_CAPITAL),
         )
+        campaign.refresh_objectives()  # activate any objective now due (idempotent)
+        return campaign

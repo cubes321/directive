@@ -51,11 +51,15 @@ async def test_play_turn_runs_all_nine_commanders():
     campaign = make_campaign()
     result = await campaign.play_turn({"guderian": "Take Minsk."})
     assert campaign.state.turn == 2
-    commander_dispatches = [d for d in result.dispatches if d["commander"] != "staff"]
+    commander_dispatches = [
+        d for d in result.dispatches if d["commander"] not in ("staff", "okh")
+    ]
     assert len(commander_dispatches) == 9
     assert {d["commander"] for d in result.dispatches} >= {"guderian", "zhukov", "staff"}
-    # dispatches also recorded in state for the UI (9 commanders + staff report)
-    assert len(campaign.state.dispatches) == 10
+    # this turn's dispatches are recorded in state (which also holds the opening
+    # OKH directive issued at game start)
+    assert all(d in campaign.state.dispatches for d in result.dispatches)
+    assert any(d["commander"] == "okh" for d in campaign.state.dispatches)
 
 
 async def test_soviet_commanders_get_stavka_directives():
@@ -152,8 +156,8 @@ async def test_turn_ends_with_a_chief_of_staff_report():
     staff = [d for d in result.dispatches if d["commander"] == "staff"]
     assert len(staff) == 1
     assert staff[0]["text"]
-    # appended after the commanders' dispatches so the inbox shows it on top
-    assert campaign.state.dispatches[-1]["commander"] == "staff"
+    # the staff report is recorded for the inbox, after the commanders' dispatches
+    assert any(d["commander"] == "staff" for d in campaign.state.dispatches)
 
 
 async def test_staff_report_without_llm_summarizes_battles():
@@ -165,6 +169,76 @@ async def test_staff_report_without_llm_summarizes_battles():
         region = combats[0]["region"]
         name = campaign.state.game_map.regions[region].name
         assert name in staff["text"]
+
+
+def _active_capture(target, **kw):
+    base = dict(id="t1", kind="capture", title="Take it", detail="",
+                issued_turn=1, deadline_turn=4, target=target,
+                reward=3, penalty=3, status="active")
+    base.update(kw)
+    return base
+
+
+async def test_meeting_an_objective_banks_standing_and_posts_okh_dispatch():
+    campaign = make_campaign()
+    campaign.state.objectives = [_active_capture("warsaw")]  # already axis-held
+    before = campaign.political_capital
+    result = await campaign.play_turn({})
+    assert campaign.political_capital == before + 3
+    assert campaign.state.objectives[0]["status"] == "met"
+    assert any(d["commander"] == "okh" for d in result.dispatches)
+
+
+async def test_failing_an_objective_costs_standing():
+    campaign = make_campaign()
+    campaign.state.turn = 5  # past the deadline
+    campaign.state.objectives = [_active_capture("moscow", deadline_turn=4)]
+    before = campaign.political_capital
+    await campaign.play_turn({})
+    assert campaign.political_capital == before - 3
+    assert campaign.state.objectives[0]["status"] == "failed"
+
+
+def test_decline_diversion_costs_decline_penalty():
+    campaign = Campaign.new(DATA_DIR)
+    campaign.state.objectives = [dict(id="d1", kind="divert", title="South", detail="",
+                                      issued_turn=1, deadline_turn=6, target="gomel",
+                                      reward=5, penalty=5, decline_penalty=2, status="pending")]
+    before = campaign.political_capital
+    campaign.decide_diversion("d1", accept=False)
+    assert campaign.state.objectives[0]["status"] == "declined"
+    assert campaign.political_capital == before - 2
+
+
+def test_accept_diversion_makes_it_a_live_objective():
+    campaign = Campaign.new(DATA_DIR)
+    campaign.state.objectives = [dict(id="d1", kind="divert", title="South", detail="",
+                                      issued_turn=1, deadline_turn=6, target="gomel",
+                                      reward=5, penalty=5, decline_penalty=2, status="pending")]
+    before = campaign.political_capital
+    campaign.decide_diversion("d1", accept=True)
+    assert campaign.state.objectives[0]["status"] == "accepted"
+    assert campaign.political_capital == before  # accepting costs nothing up front
+
+
+def test_deciding_a_non_pending_objective_is_rejected():
+    campaign = Campaign.new(DATA_DIR)
+    campaign.state.objectives = [_active_capture("minsk")]
+    with pytest.raises(ValueError):
+        campaign.decide_diversion("t1", accept=True)
+
+
+async def test_running_out_of_standing_relieves_the_player():
+    campaign = make_campaign()
+    campaign.political_capital = 1
+    campaign.state.turn = 5
+    campaign.state.objectives = [_active_capture("moscow", deadline_turn=4, penalty=3)]
+    result = await campaign.play_turn({})
+    assert campaign.political_capital <= 0
+    assert result.victory is not None
+    assert result.victory["kind"] == "relieved"
+    with pytest.raises(ValueError, match="over"):
+        await campaign.play_turn({})
 
 
 async def test_taking_moscow_ends_the_game():
