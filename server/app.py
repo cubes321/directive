@@ -21,6 +21,7 @@ from commanders.campaign import Campaign
 from commanders.config import load_config
 from commanders.llm import LMStudioClient, LMStudioUnavailable
 from engine.fog import visible_enemy_contacts
+from engine.supply import default_railhead_on_load
 from engine.turn import TurnReport
 from engine.victory import check_victory
 
@@ -87,6 +88,15 @@ def get_session() -> Session:
 
 
 app = FastAPI(title="Directive")
+
+
+@app.middleware("http")
+async def no_store_static(request, call_next):
+    # local single-player dev server: never let the browser serve a stale
+    # bundle after an update — always revalidate.
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
 
 
 @lru_cache(maxsize=1)
@@ -157,6 +167,16 @@ def snapshot(session: Session) -> dict:
             and campaign.dossiers[d["commander"]].side == side)
     ][-DISPATCH_HISTORY_LIMIT:]
 
+    # the player's converted railhead (supply flows freely over it); fall back
+    # to the migration default for saves that predate the railhead system
+    railhead = state.railheads.get(side)
+    if railhead is None:
+        railhead = sorted(
+            default_railhead_on_load(
+                state.game_map, state.control, side, state.supply_sources.get(side, [])
+            )
+        )
+
     vp = {"axis": 0, "soviet": 0}
     for r in regions:
         vp[r["control"]] += r["victory_points"]
@@ -172,6 +192,7 @@ def snapshot(session: Session) -> dict:
         "edges": edges,
         "corps": own_corps,
         "contacts": visible_enemy_contacts(state, side),
+        "railhead": railhead,
         "commanders": player_commanders,
         "bench": bench,
         "directives": {

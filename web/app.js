@@ -95,6 +95,7 @@ function renderMap() {
   const regionById = {};
   snap.regions.forEach((r) => (regionById[r.id] = r));
 
+  const railhead = new Set(snap.railhead || []);
   const gEdges = el("g", {}, svg);
   for (const e of snap.edges) {
     const a = regionById[e.a], b = regionById[e.b];
@@ -104,11 +105,14 @@ function renderMap() {
       "stroke-dasharray": e.road === "none" ? "3 4" : "none",
     }, gEdges);
     if (e.rail) {
-      el("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: "edge-rail" }, gEdges);
+      // rail that both ends have converted carries supply freely — draw it live
+      const supplied = railhead.has(e.a) && railhead.has(e.b);
+      const cls = supplied ? "edge-rail supplied" : "edge-rail";
+      el("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: cls }, gEdges);
       const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
       const nx = -dy / len, ny = dx / len;
       const ticks = Math.floor(len / 16);
-      const gT = el("g", { class: "edge-rail-ticks" }, gEdges);
+      const gT = el("g", { class: supplied ? "edge-rail-ticks supplied" : "edge-rail-ticks" }, gEdges);
       for (let i = 1; i < ticks; i++) {
         const t = i / ticks;
         const px = a.x + dx * t, py = a.y + dy * t;
@@ -123,6 +127,9 @@ function renderMap() {
   const gNodes = el("g", {}, svg);
   for (const r of snap.regions) {
     const g = el("g", { class: `region-node ${r.control}`, "data-region": r.id }, gNodes);
+    if (railhead.has(r.id)) {
+      el("circle", { cx: r.x, cy: r.y, r: 11, class: "railhead-ring" }, g);
+    }
     if (r.terrain === "urban") {
       el("rect", { x: r.x - 7, y: r.y - 7, width: 14, height: 14, class: "base" }, g);
     } else {

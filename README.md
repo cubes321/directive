@@ -68,8 +68,10 @@ converts it** (different gauge). The railhead crawls forward only about one
 region per turn, so a panzer group that races ahead outruns its supply: corps
 beyond the railhead lose supply with every region of lead, fight at reduced
 power, and (deep enough) crawl. Pause, or let the infantry and rail catch up,
-and supply recovers. Watch a corps's supply on the FORCES tab and the map; your
-commanders will complain when it bites. (Tunable in `engine/supply.py`:
+and supply recovers. The map draws your converted railhead as a bright blue
+supply network with rings on converted regions; rail beyond it is faint until
+the railhead reaches it. Watch a corps's supply there and on the FORCES tab;
+your commanders will complain when it bites. (Tunable in `engine/supply.py`:
 `RAILHEAD_SPEED`, `TRUCK_LEG_PENALTY`.)
 
 ## Configuring the AI backend

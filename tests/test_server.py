@@ -76,6 +76,16 @@ async def test_snapshot_survives_save_with_stale_map_data(api):
     assert isinstance(moscow["x"], (int, float))
 
 
+async def test_snapshot_exposes_player_railhead(api):
+    snap = (await api.post("/api/game/new")).json()
+    assert isinstance(snap["railhead"], list)
+    # the pre-war network is converted; nothing captured yet is
+    assert "warsaw" in snap["railhead"]
+    assert "smolensk" not in snap["railhead"]
+    # only the player's own regions, never enemy supply network
+    assert not any(r == "moscow" for r in snap["railhead"])
+
+
 async def test_new_game_has_no_communiques(api):
     snap = (await api.post("/api/game/new")).json()
     assert snap["communiques"] == []
