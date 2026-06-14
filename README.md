@@ -12,7 +12,27 @@ not at all. The Soviet commanders facing you work the same way.
 Born from frustration with micromanagement wargames: a real theater commander
 never moved a battalion. He wrote directives and read dispatches. So do you.
 
-![The situation map, August 1941](docs/screenshot.png)
+![The situation map, July 1941](docs/screenshot.png)
+
+## What's in it
+
+- **Command by directive.** You never move a unit. You write intent for each
+  commander; he interprets it in character — and may exceed, soften, or ignore it.
+- **Historical commanders, both sides**, as LLM agents with distinct
+  temperaments (aggression, caution, initiative, logistics, ego) and an evolving
+  service record that feeds back into how they fight.
+- **SIGNAL conversations.** Talk to any commander directly; what you say is
+  quoted in his next briefing, so it actually steers his orders.
+- **Unprompted communiqués.** A notable week may prompt a commander to reach out
+  first — a warning, boast, or plea — as a pop-up you can answer.
+- **Chief-of-staff report** opening each week's inbox with a dry assessment.
+- **Personnel command.** Hire, relieve, and replace commanders at a cost in
+  standing with OKH.
+- **Operational map + FORCES order of battle**, with fog of war on the enemy.
+- **Railhead supply.** Captured rail must be converted before it carries supply;
+  outrun your railhead and the spearhead starves. Drawn live on the map.
+- **Weather and reinforcements** on the 1941 calendar — mud, snow, and Siberians.
+- **Any OpenAI-compatible backend**, with optional per-commander models.
 
 ## Requirements
 
