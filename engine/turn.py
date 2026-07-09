@@ -25,7 +25,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 
-from engine.combat import resolve_combat
+from engine.combat import power_breakdown, resolve_combat
 from engine.orders import CommanderOrders
 from engine.state import GameState
 from engine.supply import (
@@ -118,6 +118,10 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         result = resolve_combat(
             attackers, defenders, terrain=terrain, rng=rng, weather=state.weather
         )
+        # Snapshot the fighters' power breakdown BEFORE losses are applied - this
+        # is the only point the combat-time stats survive (telemetry).
+        attacker_details = [power_breakdown(c) for c in attackers]
+        defender_details = [power_breakdown(c) for c in defenders]
         fought.update(c.id for c in attackers + defenders)
 
         _distribute_losses(attackers, result.attacker_losses, result.attacker_org_losses)
@@ -148,6 +152,7 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         report.combats.append(
             {
                 "region": region,
+                "terrain": terrain,
                 "attackers": attacker_ids,
                 "defenders": [c.id for c in defenders],
                 "odds": round(result.odds, 2),
@@ -156,6 +161,8 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
                 "outcome": "defender_retreated" if defenders_gone else "defender_held",
                 "encircled": result.defender_retreats
                 and all(c.is_destroyed for c in defenders),
+                "attacker_details": attacker_details,
+                "defender_details": defender_details,
             }
         )
 

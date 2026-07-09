@@ -40,6 +40,25 @@ def combat_power(corps: Corps) -> float:
     )
 
 
+def power_breakdown(corps: Corps) -> dict:
+    """Every factor that went into ``combat_power`` for one corps, for battle
+    telemetry: makes it explicit why a starved or worn corps hit as hard (or as
+    softly) as it did. Kept in lockstep with ``combat_power`` above."""
+    return {
+        "id": corps.id,
+        "side": corps.side,
+        "commander": corps.commander,
+        "kind": corps.kind,
+        "strength": corps.strength,
+        "organization": corps.organization,
+        "supply": corps.supply,
+        "kind_multiplier": KIND_MULTIPLIER[corps.kind],
+        "supply_factor": round(max(0.3, corps.supply / 100), 3),
+        "experience_factor": round(0.75 + corps.experience / 200, 3),
+        "power": round(combat_power(corps), 1),
+    }
+
+
 def resolve_combat(
     attackers: list[Corps],
     defenders: list[Corps],

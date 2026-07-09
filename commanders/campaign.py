@@ -34,6 +34,7 @@ from commanders.scripted import scripted_orders
 from engine.objectives import advance_objectives, issue_due_objectives
 from engine.scenario import load_scenario
 from engine.state import GameState
+from engine.telemetry import build_turn_log
 from engine.turn import TurnReport, resolve_turn
 from engine.victory import check_victory
 
@@ -86,13 +87,18 @@ class Campaign:
     player_side: str = "axis"
     political_capital: int = STARTING_POLITICAL_CAPITAL
     communique_chance: float = BASE_CHANCE
+    # When set, a per-turn battle/unit telemetry file is written here each turn
+    # (for balance analysis). None = off, so tests and headless runs opt in.
+    turn_log_dir: Path | None = None
 
     @classmethod
-    def new(cls, data_dir: Path, client: LMStudioClient | None = None) -> Campaign:
+    def new(cls, data_dir: Path, client: LMStudioClient | None = None,
+            turn_log_dir: Path | None = None) -> Campaign:
         campaign = cls(
             state=load_scenario(data_dir),
             dossiers=load_dossiers(data_dir),
             client=client,
+            turn_log_dir=turn_log_dir,
         )
         campaign.refresh_objectives()  # OKH's opening directive greets the player
         return campaign
@@ -177,6 +183,7 @@ class Campaign:
 
         report = resolve_turn(self.state, all_orders)
         update_track_records(self.state, report, self.dossiers)
+        self._write_turn_log(report)
 
         staff_dispatch = {
             "turn": report.turn,
@@ -201,6 +208,16 @@ class Campaign:
             victory=self.current_verdict(),
             communiques=communiques,
             okh_events=okh_events,
+        )
+
+    def _write_turn_log(self, report: TurnReport) -> None:
+        """Dump this turn's battle + unit telemetry for balance analysis."""
+        if self.turn_log_dir is None:
+            return
+        self.turn_log_dir.mkdir(parents=True, exist_ok=True)
+        path = self.turn_log_dir / f"turn{report.turn:02d}.json"
+        path.write_text(
+            json.dumps(build_turn_log(self.state, report), indent=2), encoding="utf-8"
         )
 
     async def _communiques(self, report: TurnReport) -> list[dict]:
@@ -378,7 +395,8 @@ class Campaign:
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: Path, client: LMStudioClient | None = None) -> Campaign:
+    def load(cls, path: Path, client: LMStudioClient | None = None,
+             turn_log_dir: Path | None = None) -> Campaign:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         campaign = cls(
             state=GameState.from_dict(payload["state"]),
@@ -386,6 +404,7 @@ class Campaign:
             client=client,
             player_side=payload.get("player_side", "axis"),
             political_capital=payload.get("political_capital", STARTING_POLITICAL_CAPITAL),
+            turn_log_dir=turn_log_dir,
         )
         campaign.refresh_objectives()  # activate any objective now due (idempotent)
         return campaign

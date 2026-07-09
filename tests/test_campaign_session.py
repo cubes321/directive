@@ -171,6 +171,23 @@ async def test_staff_report_without_llm_summarizes_battles():
         assert name in staff["text"]
 
 
+async def test_play_turn_writes_a_turn_log_when_dir_set(tmp_path):
+    campaign = Campaign.new(DATA_DIR, turn_log_dir=tmp_path)  # no client is fine
+    await campaign.play_turn({})
+    logs = list(tmp_path.glob("turn*.json"))
+    assert logs, "expected a per-turn telemetry file"
+    data = json.loads(logs[0].read_text(encoding="utf-8"))
+    assert data["turn"] == 1
+    assert "combats" in data
+    assert any(u["side"] == "axis" for u in data["units"])
+
+
+async def test_no_turn_log_written_without_a_dir(tmp_path):
+    campaign = Campaign.new(DATA_DIR)  # turn_log_dir defaults to None
+    await campaign.play_turn({})
+    assert not list(tmp_path.glob("turn*.json"))
+
+
 def _active_capture(target, **kw):
     base = dict(id="t1", kind="capture", title="Take it", detail="",
                 issued_turn=1, deadline_turn=4, target=target,

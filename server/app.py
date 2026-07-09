@@ -60,13 +60,17 @@ class Session:
             self.save_path = Path(save_path)
 
     def new_game(self) -> Campaign:
-        self.campaign = Campaign.new(DATA_DIR, client=self._client())
+        self.campaign = Campaign.new(
+            DATA_DIR, client=self._client(), turn_log_dir=ROOT / "logs" / "turns"
+        )
         self.last_report = None
         self.last_communiques = []
         return self.campaign
 
     def reload(self) -> Campaign:
-        self.campaign = Campaign.load(self.save_path, client=self._client())
+        self.campaign = Campaign.load(
+            self.save_path, client=self._client(), turn_log_dir=ROOT / "logs" / "turns"
+        )
         self.last_report = None
         self.last_communiques = []
         return self.campaign
