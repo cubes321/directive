@@ -48,3 +48,13 @@ max_concurrency = 3
 # strauss = "qwen/qwen3.5-9b"
 # weichs = "qwen/qwen3.5-9b"
 # guderian = "glm-4.7-flash"
+
+# Optional passthrough of backend-specific request-body fields, merged verbatim
+# into every chat-completions call. Use this for knobs the OpenAI-compatible
+# shape has no field for. Nested tables map to nested JSON. Absent by default,
+# so the request body is untouched — leave it out for backends without such a
+# knob. Example — disable Kimi K2's default reasoning (much faster; note
+# kimi-k2.6 then requires temperature = 0.6 instead of 1):
+#
+# [llm.params.thinking]
+# type = "disabled"

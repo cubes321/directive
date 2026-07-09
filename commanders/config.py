@@ -31,6 +31,11 @@ class LLMConfig:
     # can truly serve more at once; on a single GPU it just adds latency.
     max_concurrency: int = 3
     models: dict[str, str] = field(default_factory=dict)  # role -> model override
+    # Extra request-body fields merged verbatim into every chat-completions
+    # call. For backend-specific knobs the OpenAI-compatible shape has no field
+    # for - e.g. Kimi's {"thinking": {"type": "disabled"}} or a provider's
+    # {"reasoning_effort": "low"}. Empty by default, so the body is untouched.
+    params: dict = field(default_factory=dict)
 
     def model_for(self, role: str) -> str:
         return self.models.get(role, self.model)
@@ -49,6 +54,8 @@ def load_config(path: Path | None = None) -> LLMConfig:
         }
         if isinstance(llm.get("models"), dict):
             values["models"] = {str(k): str(v) for k, v in llm["models"].items()}
+        if isinstance(llm.get("params"), dict):
+            values["params"] = dict(llm["params"])
 
     env = {
         "base_url": os.environ.get("DIRECTIVE_LLM_BASE_URL"),

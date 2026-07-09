@@ -116,6 +116,46 @@ def test_client_built_from_config():
     assert client._model_for("kluge") == "m"
 
 
+def test_extra_params_loaded_from_toml(tmp_path):
+    path = tmp_path / "config.toml"
+    path.write_text(
+        '[llm]\nmodel = "kimi-k2.6"\ntemperature = 0.6\n\n'
+        '[llm.params.thinking]\ntype = "disabled"\n',
+        encoding="utf-8",
+    )
+    cfg = load_config(path)
+    assert cfg.params == {"thinking": {"type": "disabled"}}
+
+
+def test_no_extra_params_by_default(tmp_path):
+    assert load_config(tmp_path / "missing.toml").params == {}
+
+
+async def test_extra_params_merged_into_order_and_text_requests():
+    captured = []
+    client = _capture_client(
+        captured, model="m", params={"thinking": {"type": "disabled"}}
+    )
+    state = load_scenario(DATA_DIR)
+    await client.request_orders(state, load_dossiers(DATA_DIR)["guderian"])
+    await client.request_text([{"role": "user", "content": "hi"}], role="staff")
+    for request in captured:
+        assert json.loads(request.content)["thinking"] == {"type": "disabled"}
+
+
+async def test_empty_params_leaves_request_body_untouched():
+    # The safety guarantee: with no [llm.params], the body is exactly the
+    # standard OpenAI-compatible keys - LM Studio and other backends see no
+    # provider-specific fields injected.
+    captured = []
+    client = _capture_client(captured, model="m")
+    state = load_scenario(DATA_DIR)
+    await client.request_orders(state, load_dossiers(DATA_DIR)["guderian"])
+    assert set(json.loads(captured[0].content)) == {
+        "model", "messages", "temperature", "response_format"
+    }
+
+
 def test_max_concurrency_from_toml_and_env(tmp_path, monkeypatch):
     path = tmp_path / "config.toml"
     path.write_text("[llm]\nmax_concurrency = 4\n", encoding="utf-8")

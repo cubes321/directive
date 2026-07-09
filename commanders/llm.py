@@ -44,6 +44,7 @@ class LMStudioClient:
         api_key: str = "",
         models: dict[str, str] | None = None,
         max_concurrency: int = DEFAULT_MAX_CONCURRENCY,
+        params: dict | None = None,
         transport: httpx.BaseTransport | None = None,
         log_dir: Path | None = None,
     ):
@@ -54,6 +55,9 @@ class LMStudioClient:
         self.temperature = temperature
         self.api_key = api_key
         self.max_concurrency = max_concurrency
+        # Backend-specific request-body fields, merged into every call. Empty by
+        # default so the OpenAI-compatible body is unchanged (see _payload).
+        self.params = dict(params or {})
         # Gate in-flight requests so queued ones wait here (no timeout running)
         # rather than in the server's queue (timeout burning) — see _chat.
         self._semaphore = asyncio.Semaphore(max_concurrency)
@@ -71,6 +75,7 @@ class LMStudioClient:
             temperature=config.temperature,
             api_key=config.api_key,
             max_concurrency=config.max_concurrency,
+            params=config.params,
             transport=transport,
             log_dir=log_dir,
         )
@@ -137,6 +142,7 @@ class LMStudioClient:
             "model": self._model_for(role),
             "messages": messages,
             "temperature": self.temperature,
+            **self.params,
         }
         content = await self._chat(payload)
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
@@ -148,6 +154,7 @@ class LMStudioClient:
             "messages": messages,
             "temperature": self.temperature,
             "response_format": {"type": "json_schema", "json_schema": ORDER_SCHEMA},
+            **self.params,
         }
 
     async def _chat(self, payload: dict) -> str:
