@@ -174,8 +174,38 @@ class LMStudioClient:
                 f"Cannot reach LM Studio at {self.base_url} - is the server running "
                 f"with a model loaded? ({e})"
             ) from e
-        except (httpx.ReadTimeout, httpx.HTTPStatusError):
+        except httpx.HTTPStatusError as e:
+            code = e.response.status_code
+            # A 4xx (except 429 rate-limit) is a configuration error - wrong
+            # model name, unsupported parameter, bad API key - that affects
+            # every request identically. Surface it loudly instead of laundering
+            # it into an empty "invalid JSON" response and hold-orders. A 5xx or
+            # 429 is transient and per-request: degrade to fallback and go on.
+            if 400 <= code < 500 and code != 429:
+                raise LMStudioUnavailable(
+                    f"The server at {self.base_url} rejected the request "
+                    f"(HTTP {code}): {self._error_detail(e.response)}. Check the "
+                    f"model name and parameters in config.toml."
+                ) from e
+            return ""
+        except httpx.ReadTimeout:
             return ""  # treated as an unparseable response -> repair/fallback path
+
+    @staticmethod
+    def _error_detail(response: httpx.Response) -> str:
+        """The server's own explanation for a rejected request, if it gave one.
+        OpenAI-compatible servers return ``{"error": {"message": ...}}``."""
+        try:
+            body = response.json()
+            if isinstance(body, dict):
+                err = body.get("error")
+                if isinstance(err, dict) and err.get("message"):
+                    return str(err["message"])
+                if isinstance(err, str) and err:
+                    return err
+        except ValueError:
+            pass
+        return (response.text or "").strip()[:300] or "no detail"
 
     @staticmethod
     def _extract_json(content: str) -> str:

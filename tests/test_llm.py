@@ -144,6 +144,39 @@ async def test_unreachable_server_raises():
         await client.request_orders(state, dossier)
 
 
+async def test_config_error_surfaces_instead_of_silent_fallback():
+    # A 4xx (wrong model, bad param, bad key) is a configuration error that
+    # affects every commander; it must stop the turn with a clear message, not
+    # be laundered into empty "invalid JSON" responses and hold-orders.
+    state, dossier = setup_state()
+
+    def responder(request):
+        return httpx.Response(
+            404,
+            json={"error": {"message": "Not found the model kimi-k2.6p"}},
+        )
+
+    client = make_client(responder)
+    with pytest.raises(LMStudioUnavailable) as excinfo:
+        await client.request_orders(state, dossier)
+    msg = str(excinfo.value)
+    assert "404" in msg
+    assert "kimi-k2.6p" in msg  # the server's own explanation is surfaced
+
+
+async def test_server_error_still_degrades_to_hold_orders():
+    # A 5xx or overload is transient and per-request; degrade that one
+    # commander to hold-orders and keep the turn going, as before.
+    state, dossier = setup_state()
+
+    def responder(request):
+        return httpx.Response(503, text="upstream overloaded")
+
+    client = make_client(responder)
+    orders = await client.request_orders(state, dossier)
+    assert all(o.posture == "defend" for o in orders.orders)
+
+
 async def test_transcripts_are_logged(tmp_path):
     state, dossier = setup_state()
     client = make_client(lambda r: chat_response(valid_payload()), log_dir=tmp_path)
