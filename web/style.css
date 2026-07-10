@@ -201,10 +201,14 @@ main { flex: 1; display: flex; min-height: 0; }
 #region-pop .bar.red { background: var(--enemy); }
 
 .map-legend {
-  display: flex; gap: 18px; padding: 8px 4px 2px; font-size: 11px; letter-spacing: 1px; color: #93886a;
+  display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 8px 4px 2px; font-size: 11px; letter-spacing: 1px; color: #93886a;
 }
 .map-legend .sw { display: inline-block; width: 14px; height: 9px; margin-right: 5px; vertical-align: -1px; }
 .sw.own { background: var(--own); }
+.sw.sup-green { background: #2f4a2f; }
+.sw.sup-amber { background: #6b5a1f; }
+.sw.sup-red { background: #6b2a24; }
+.sw.beyond { background: #7a2a24; opacity: .6; border-radius: 50%; }
 .sw.enemy { background: #b65454; }
 .sw.rail { background: repeating-linear-gradient(90deg, var(--rail) 0 3px, transparent 3px 6px); height: 3px; }
 .sw.supplied { background: var(--own); height: 3px; }
