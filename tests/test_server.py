@@ -28,6 +28,15 @@ async def test_new_game_returns_snapshot(api):
     assert not any(c["id"].startswith("sov_") for c in snap["corps"])
 
 
+async def test_snapshot_exposes_supply_legs(api):
+    snap = (await api.post("/api/game/new")).json()
+    legs = snap["supply_legs"]
+    assert isinstance(legs, dict)
+    assert any(v == 0 for v in legs.values())  # rear source sits on the railhead
+    region_ids = {r["id"] for r in snap["regions"]}
+    assert all(k in region_ids and isinstance(v, int) and v >= 0 for k, v in legs.items())
+
+
 async def test_okh_opening_directive_appears_in_dispatches(api):
     # OKH's opening objective is stored at game start; it must reach the
     # player-visible DISPATCHES inbox, not be filtered out like the enemy's.

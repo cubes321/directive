@@ -21,7 +21,7 @@ from commanders.campaign import Campaign
 from commanders.config import load_config
 from commanders.llm import LMStudioClient, LMStudioUnavailable
 from engine.fog import visible_enemy_contacts
-from engine.supply import default_railhead_on_load
+from engine.supply import default_railhead_on_load, supply_legs
 from engine.turn import TurnReport
 
 ROOT = Path(__file__).parent.parent
@@ -203,6 +203,10 @@ def snapshot(session: Session) -> dict:
         "corps": own_corps,
         "contacts": visible_enemy_contacts(state, side),
         "railhead": railhead,
+        "supply_legs": supply_legs(
+            state.game_map, state.control, side,
+            state.supply_sources.get(side, []), set(railhead),
+        ),
         "commanders": player_commanders,
         "bench": bench,
         "directives": {
