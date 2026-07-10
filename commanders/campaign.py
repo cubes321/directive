@@ -29,7 +29,7 @@ from commanders.intent import soviet_directives
 from commanders.llm import LMStudioClient
 from commanders.prompts import build_persona_prompt, build_system_prompt
 from commanders.orchestrator import gather_orders
-from commanders.records import update_track_records
+from commanders.records import update_morale, update_track_records
 from commanders.scripted import scripted_orders
 from engine.objectives import advance_objectives, issue_due_objectives
 from engine.scenario import load_scenario
@@ -189,6 +189,7 @@ class Campaign:
 
         report = resolve_turn(self.state, all_orders)
         update_track_records(self.state, report, self.dossiers)
+        update_morale(self.state, report, self.dossiers, self.player_side)
         self._write_turn_log(report)
 
         staff_dispatch = {

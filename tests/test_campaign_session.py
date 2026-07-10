@@ -171,6 +171,21 @@ async def test_staff_report_without_llm_summarizes_battles():
         assert name in staff["text"]
 
 
+async def test_play_turn_evolves_morale_and_it_persists(tmp_path):
+    campaign = make_campaign()
+    for cid in campaign.active_commanders(campaign.player_side):
+        campaign.dossiers[cid].dynamic["fatigue"] = 5  # known baseline
+    await campaign.play_turn({})
+    fatigues = [campaign.dossiers[cid].dynamic["fatigue"]
+                for cid in campaign.active_commanders(campaign.player_side)]
+    assert any(f != 5 for f in fatigues)  # morale moved for someone
+    path = tmp_path / "save.json"
+    campaign.save(path)
+    reloaded = Campaign.load(path)
+    any_cid = campaign.active_commanders(campaign.player_side)[0]
+    assert reloaded.dossiers[any_cid].dynamic == campaign.dossiers[any_cid].dynamic
+
+
 async def test_play_turn_writes_a_turn_log_when_dir_set(tmp_path):
     campaign = Campaign.new(DATA_DIR, turn_log_dir=tmp_path)  # no client is fine
     await campaign.play_turn({})
