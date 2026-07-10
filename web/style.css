@@ -201,7 +201,7 @@ main { flex: 1; display: flex; min-height: 0; }
 #region-pop .bar.red { background: var(--enemy); }
 
 .map-legend {
-  display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 8px 4px 2px; font-size: 11px; letter-spacing: 1px; color: #93886a;
+  display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 8px 4px 2px; font-size: 11px; letter-spacing: 1px; color: var(--ink-faint);
 }
 .map-legend .sw { display: inline-block; width: 14px; height: 9px; margin-right: 5px; vertical-align: -1px; }
 .sw.own { background: var(--own); }
