@@ -15,6 +15,7 @@ function esc(s) {
 
 let snap = null;
 let highlightedCorps = new Set();
+const prevMorale = {}; // commander id -> last-rendered dynamic, so bars can tween
 let directiveTimers = {};
 
 /* ── api ─────────────────────────────────────────── */
@@ -295,6 +296,18 @@ function renderCommanders() {
         <div class="trait"><span class="tname">${esc(k)}</span>
         <span class="tbar"><span class="tfill" style="width:${Number(v) * 10}%"></span></span></div>`)
       .join("");
+    const prev = prevMorale[cmd.id] || cmd.dynamic || {};
+    const morale = cmd.dynamic
+      ? ["confidence", "fatigue", "relationship"]
+          .map((k) => {
+            const from = Number(prev[k] ?? cmd.dynamic[k]) * 10;
+            const to = Number(cmd.dynamic[k]) * 10;
+            return `
+        <div class="morale-row"><span class="mname">${k}</span>
+        <span class="mbar"><span class="mfill ${k}" style="width:${from}%" data-to="${to}"></span></span></div>`;
+          })
+          .join("")
+      : "";
     const record = cmd.track_record.length
       ? cmd.track_record.map((r) => `<li><b>W${Number(r.turn)}</b> ${esc(r.summary)}</li>`).join("")
       : "<li>(The campaign is just beginning.)</li>";
@@ -311,6 +324,7 @@ function renderCommanders() {
         </div>
       </div>
       <div class="traits">${traits}</div>
+      <div class="morale"><h5>STATE OF MIND</h5>${morale}</div>
       <div class="record"><h5>SERVICE RECORD</h5><ul>${record}</ul></div>
       <div class="directive-box">
         <label>YOUR DIRECTIVE TO ${esc(cmd.name.split(" ").pop().toUpperCase())}</label>
@@ -344,6 +358,18 @@ function renderCommanders() {
       renderMap();
     });
     page.appendChild(card);
+  }
+
+  // Bars were rendered at their previous width; on the next frame slide them to
+  // the current value so a mood shift visibly animates. Then cache the current
+  // values for the next render.
+  requestAnimationFrame(() => {
+    page.querySelectorAll(".mfill[data-to]").forEach((f) => {
+      f.style.width = f.dataset.to + "%";
+    });
+  });
+  for (const cmd of snap.commanders) {
+    if (cmd.dynamic) prevMorale[cmd.id] = { ...cmd.dynamic };
   }
 
   page.querySelectorAll("textarea[data-cmd]").forEach((ta) => {

@@ -293,6 +293,17 @@ main { flex: 1; display: flex; min-height: 0; }
 .trait .tbar { flex: 1; height: 6px; background: #c9bd9d; position: relative; }
 .trait .tfill { position: absolute; inset: 0 auto 0 0; background: var(--own); }
 
+/* Morale (state of mind): evolving, so the fills animate as mood shifts. */
+.morale { margin: 4px 0 2px; border-top: 1px dotted #b3a784; padding-top: 6px; }
+.morale h5 { font-family: var(--font-ui); font-size: 10px; letter-spacing: 2px; color: #7a6b49; margin-bottom: 4px; }
+.morale-row { display: flex; align-items: center; font-size: 10.5px; letter-spacing: 1px; color: #5a4f3a; text-transform: uppercase; padding: 1px 0; }
+.morale-row .mname { width: 88px; flex: 0 0 auto; }
+.mbar { flex: 1; height: 6px; background: #c9bd9d; position: relative; }
+.mfill { position: absolute; inset: 0 auto 0 0; transition: width 0.6s ease; }
+.mfill.confidence { background: #6a9a5b; }
+.mfill.fatigue { background: #a8843f; }
+.mfill.relationship { background: #5b82a8; }
+
 .record { margin-top: 8px; border-top: 1px dotted #b3a784; padding-top: 6px; }
 .record h5 { font-family: var(--font-ui); font-size: 10px; letter-spacing: 2px; color: #7a6b49; margin-bottom: 3px; }
 .record li { font-family: var(--font-type); font-size: 11px; list-style: none; padding: 1px 0; }
