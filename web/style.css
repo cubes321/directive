@@ -141,6 +141,13 @@ main { flex: 1; display: flex; min-height: 0; }
 .edge-rail-ticks.supplied { stroke: var(--own); stroke-width: 1.3; }
 .railhead-ring { fill: none; stroke: var(--own); stroke-width: 1.4; opacity: .55; stroke-dasharray: 2 2; }
 
+/* Supply gradient: a soft halo behind the region node. Always on, subtle. */
+.supply-halo { pointer-events: none; }
+.supply-halo.l0 { fill: #3a6ea5; opacity: .20; }   /* on the railhead: supplied blue */
+.supply-halo.l1 { fill: #3a6ea5; opacity: .12; }
+.supply-halo.l2 { fill: #7a6a4a; opacity: .10; }   /* neutral */
+.supply-halo.l3 { fill: #7a2a24; opacity: .22; }   /* beyond supply: dull red */
+
 .region-node { cursor: pointer; }
 .region-node circle.base, .region-node rect.base {
   fill: #cabd9c; stroke: var(--ink-faint); stroke-width: 1.2;
@@ -173,6 +180,11 @@ main { flex: 1; display: flex; min-height: 0; }
 .counter.own.hl text { fill: #241c05; }
 .counter.enemy rect { fill: #b65454; stroke: var(--enemy-deep); }
 .counter.enemy text { fill: #f7e3e3; text-anchor: middle; }
+
+/* Supply band on own counters (hover-highlight still wins via :not(.hl)). */
+.counter.own.sup-green:not(.hl) rect { fill: #2f4a2f; }
+.counter.own.sup-amber:not(.hl) rect { fill: #6b5a1f; }
+.counter.own.sup-red:not(.hl)   rect { fill: #6b2a24; }
 
 #region-pop {
   position: absolute; z-index: 10; min-width: 220px; max-width: 280px;

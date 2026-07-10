@@ -96,6 +96,7 @@ function renderMap() {
   snap.regions.forEach((r) => (regionById[r.id] = r));
 
   const railhead = new Set(snap.railhead || []);
+  const supplyLegs = snap.supply_legs || {};
   const gEdges = el("g", {}, svg);
   for (const e of snap.edges) {
     const a = regionById[e.a], b = regionById[e.b];
@@ -127,6 +128,15 @@ function renderMap() {
   const gNodes = el("g", {}, svg);
   for (const r of snap.regions) {
     const g = el("g", { class: `region-node ${r.control}`, "data-region": r.id }, gNodes);
+    if (r.id in supplyLegs) {
+      // supply gradient: 0 legs = supplied (blue) ... 3+ = beyond supply (red)
+      const legs = supplyLegs[r.id];
+      const cls = legs === 0 ? "supply-halo l0"
+                : legs === 1 ? "supply-halo l1"
+                : legs === 2 ? "supply-halo l2"
+                : "supply-halo l3";
+      el("circle", { cx: r.x, cy: r.y, r: 15, class: cls }, g);
+    }
     if (railhead.has(r.id)) {
       el("circle", { cx: r.x, cy: r.y, r: 11, class: "railhead-ring" }, g);
     }
@@ -149,8 +159,8 @@ function renderMap() {
     const own = ownByRegion[r.id] || [];
     if (own.length) {
       const ids = own.map((c) => c.id);
-      const cls = ids.some((id) => highlightedCorps.has(id)) ? "counter own hl" : "counter own";
-      const gc = el("g", { class: cls }, g);
+      const base = ids.some((id) => highlightedCorps.has(id)) ? "counter own hl" : "counter own";
+      const gc = el("g", { class: `${base} ${supplyBand(own)}` }, g);
       el("rect", { x: r.x - 11, y: r.y - 24, width: 22, height: 13 }, gc);
       el("text", { x: r.x, y: r.y - 14 }, gc).textContent = `${own.length}⨯`;
       const commanders = [...new Set(own.map((c) => commanderSurname(c.commander)))];
@@ -176,6 +186,16 @@ function commanderSurname(commanderId) {
   const cmd = snap.commanders.find((c) => c.id === commanderId);
   if (!cmd) return commanderId.toUpperCase();
   return cmd.name.split(" ").pop().toUpperCase();
+}
+
+// Lowest supply in a stack decides the counter colour — one starving corps
+// should light the whole marker. Thresholds match the supply model + the
+// staff's "supply critical (<40)" language.
+function supplyBand(corpsList) {
+  const min = Math.min(...corpsList.map((c) => Number(c.supply)));
+  if (min < 40) return "sup-red";
+  if (min < 75) return "sup-amber";
+  return "sup-green";
 }
 
 function starPath(cx, cy, r) {
