@@ -136,9 +136,11 @@ main { flex: 1; display: flex; min-height: 0; }
 .edge-road.highway { stroke: #6e5526; stroke-width: 3; }
 .edge-rail { stroke: var(--rail); stroke-width: 1.2; fill: none; }
 .edge-rail-ticks { stroke: var(--rail); stroke-width: 1; }
-/* converted railhead: supply flows freely over this rail */
-.edge-rail.supplied { stroke: var(--own); stroke-width: 2.4; opacity: .95; }
-.edge-rail-ticks.supplied { stroke: var(--own); stroke-width: 1.3; }
+/* converted railhead: supply flows freely over this rail. Lighter, brighter
+   blue than the grease-pencil --own so the supplied network reads at a glance
+   and matches the supply halo hue. */
+.edge-rail.supplied { stroke: #5b9bd5; stroke-width: 2.8; opacity: 1; }
+.edge-rail-ticks.supplied { stroke: #5b9bd5; stroke-width: 1.5; }
 .railhead-ring { fill: none; stroke: var(--own); stroke-width: 1.4; opacity: .55; stroke-dasharray: 2 2; }
 
 /* Supply gradient: a soft halo behind the region node. Always on, subtle. */
@@ -211,7 +213,7 @@ main { flex: 1; display: flex; min-height: 0; }
 .sw.beyond { background: #7a2a24; opacity: .6; border-radius: 50%; }
 .sw.enemy { background: #b65454; }
 .sw.rail { background: repeating-linear-gradient(90deg, var(--rail) 0 3px, transparent 3px 6px); height: 3px; }
-.sw.supplied { background: var(--own); height: 3px; }
+.sw.supplied { background: #5b9bd5; height: 3px; }
 .sw.hw { background: #6e5526; height: 3px; }
 .sw.star { background: var(--gold); clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); width: 12px; height: 12px; }
 
