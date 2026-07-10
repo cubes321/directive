@@ -389,6 +389,12 @@ class Campaign:
         )
         if commander_id in self.state.directives:
             self.state.directives[replacement_id] = self.state.directives.pop(commander_id)
+        # A relief unsettles the peers who remain in command.
+        for other_id, other in self.dossiers.items():
+            if (other_id not in (commander_id, replacement_id)
+                    and other.side == self.player_side
+                    and self.state.corps_for(other_id)):
+                other.dynamic["relationship"] = max(0, other.dynamic.get("relationship", 5) - 1)
         return cost
 
     def save(self, path: Path) -> None:

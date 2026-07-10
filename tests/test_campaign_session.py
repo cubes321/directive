@@ -320,6 +320,15 @@ def test_dismissal_requires_benched_same_side_replacement():
         campaign.dismiss("guderian", "rokossovsky")  # wrong side
 
 
+def test_dismissing_a_commander_cools_the_remaining_ones():
+    campaign = Campaign.new(DATA_DIR)
+    hoth_before = campaign.dossiers["hoth"].dynamic["relationship"]
+    campaign.dismiss("guderian", "schmidt")  # relieve a peer
+    assert campaign.dossiers["hoth"].dynamic["relationship"] == hoth_before - 1
+    # the enemy side is untouched
+    assert campaign.dossiers["pavlov"].dynamic["relationship"] == 5
+
+
 def test_dismissal_blocked_without_capital():
     campaign = Campaign.new(DATA_DIR)
     campaign.political_capital = 2
