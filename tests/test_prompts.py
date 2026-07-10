@@ -1,9 +1,21 @@
 from pathlib import Path
 
-from commanders.dossier import load_dossiers
-from commanders.prompts import ORDER_SCHEMA, build_system_prompt
+from commanders.dossier import Dossier, load_dossiers
+from commanders.prompts import (
+    ORDER_SCHEMA,
+    _current_state_block,
+    build_persona_prompt,
+    build_system_prompt,
+)
 
 DATA_DIR = Path(__file__).parent.parent / "data"
+
+
+def _dossier(**dynamic):
+    base = {"confidence": 5, "fatigue": 0, "relationship": 5}
+    base.update(dynamic)
+    return Dossier(id="x", name="Test", role="Test Corps", side="axis",
+                   bio="A soldier.", traits={"ego": 5}, dynamic=base)
 
 
 def test_system_prompt_carries_persona_and_rules():
@@ -23,6 +35,23 @@ def test_system_prompt_reflects_traits_in_words():
     assert guderian != strauss
     assert "aggression: 9/10" in guderian
     assert "aggression: 3/10" in strauss
+
+
+def test_low_relationship_block_signals_insubordination():
+    assert "own judgment" in _current_state_block(_dossier(relationship=1)).lower()
+
+
+def test_high_confidence_and_exhaustion_show():
+    assert "riding high" in _current_state_block(_dossier(confidence=9)).lower()
+    assert "exhaust" in _current_state_block(_dossier(fatigue=8)).lower()
+
+
+def test_neutral_mood_is_calm_not_empty():
+    assert _current_state_block(_dossier()).strip()  # a neutral line, never empty
+
+
+def test_persona_prompt_includes_current_state():
+    assert "YOUR CURRENT STATE" in build_persona_prompt(_dossier(relationship=1))
 
 
 def test_track_record_appears_in_prompt():

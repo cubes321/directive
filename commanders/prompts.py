@@ -77,6 +77,29 @@ def _track_record_block(dossier: Dossier) -> str:
     return "\n".join(f"- Week {r['turn']}: {r['summary']}" for r in dossier.track_record[-10:])
 
 
+def _current_state_block(dossier: Dossier) -> str:
+    """Prose (never numbers) describing the commander's present morale, so his
+    tone, aggression, and willingness to obey respond to how the campaign and
+    the player have treated him. Only salient values speak up."""
+    d = dossier.dynamic
+    conf, fat, rel = d.get("confidence", 5), d.get("fatigue", 0), d.get("relationship", 5)
+    lines: list[str] = []
+    if conf >= 8:
+        lines.append("You are riding high - recent successes leave you certain of your judgment.")
+    elif conf <= 2:
+        lines.append("Recent reverses have shaken you; you are second-guessing yourself.")
+    if fat >= 7:
+        lines.append("Your formations are exhausted, stretched past the point of endurance.")
+    if rel >= 8:
+        lines.append("You trust the theater commander; his intent and yours run together.")
+    elif rel <= 2:
+        lines.append("Your patience with headquarters is worn thin; you increasingly act on "
+                     "your own judgment, whatever the directive says.")
+    if not lines:
+        lines.append("You are steady - neither elated nor discouraged.")
+    return "\n".join(lines)
+
+
 def build_persona_prompt(dossier: Dossier) -> str:
     """The commander's identity only — no order-format rules. Use this for
     conversational output (communiqués, signal chats); embedding the order
@@ -92,7 +115,10 @@ YOUR CHARACTER (let these genuinely drive your decisions):
 {_traits_block(dossier)}
 
 YOUR WAR SO FAR:
-{_track_record_block(dossier)}"""
+{_track_record_block(dossier)}
+
+YOUR CURRENT STATE:
+{_current_state_block(dossier)}"""
 
 
 def build_system_prompt(dossier: Dossier) -> str:
