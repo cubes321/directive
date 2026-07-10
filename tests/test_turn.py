@@ -1,6 +1,27 @@
 from engine.orders import CommanderOrders, CorpsOrder
 from engine.state import GameState
-from engine.turn import resolve_turn
+from engine.turn import _distribute_losses, resolve_turn
+from engine.units import Corps
+
+
+def _corps(cid, strength=100, organization=100):
+    return Corps(id=cid, name=cid.upper(), side="axis", kind="infantry",
+                 location="x", commander="c", strength=strength, organization=organization)
+
+
+def test_distribute_losses_never_wastes_points_on_destroyed_corps():
+    small, big = _corps("s", strength=5), _corps("b", strength=100)
+    applied_str, _ = _distribute_losses([small, big], 20, 0)
+    # all 20 land on living corps: 5 finish the small one, 15 fall on the big one
+    assert applied_str == 20
+    assert (5 - small.strength) + (100 - big.strength) == 20
+    assert small.strength == 0
+
+
+def test_distribute_losses_reports_only_what_can_be_applied():
+    a, b = _corps("a", strength=5), _corps("b", strength=3)
+    applied_str, _ = _distribute_losses([a, b], 20, 0)
+    assert applied_str == 8  # only 8 strength points existed to remove
 
 
 def state_data():

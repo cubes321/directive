@@ -165,7 +165,7 @@ def snapshot(session: Session) -> dict:
     own_commander_ids = {d["id"] for d in player_commanders}
     dispatches = [
         d for d in state.dispatches
-        if d["commander"] == "staff"
+        if d["commander"] in ("staff", "okh")  # staff report and OKH directives
         or (d["commander"] in campaign.dossiers
             and campaign.dossiers[d["commander"]].side == side)
     ][-DISPATCH_HISTORY_LIMIT:]

@@ -104,6 +104,13 @@ def validate_orders(
     unordered = own_living - {o.corps_id for o in orders.orders}
     for corps_id in sorted(unordered):
         errors.append(f"no order given for {corps_id}; every corps needs an order")
+    seen: set[str] = set()
+    for corps_id in [o.corps_id for o in orders.orders]:
+        if corps_id in seen:
+            errors.append(
+                f"{corps_id} was given more than one order; issue exactly one per corps"
+            )
+        seen.add(corps_id)
     for order in orders.orders:
         errors.extend(
             _order_errors(order, orders.commander, by_id, game_map, control, weather)

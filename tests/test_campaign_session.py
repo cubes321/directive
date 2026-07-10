@@ -188,6 +188,36 @@ async def test_no_turn_log_written_without_a_dir(tmp_path):
     assert not list(tmp_path.glob("turn*.json"))
 
 
+async def test_transition_turn_briefs_on_current_weather_not_last_turns():
+    # Turn 16 is the clear->mud transition. The briefing (and thus order
+    # validation) must reflect THIS turn's weather, or a commander plans on
+    # clear-weather movement that resolution then executes under mud.
+    campaign = Campaign.new(DATA_DIR)
+    campaign.state.turn = 16
+    campaign.state.weather = "clear"  # stale value carried from turn 15
+    briefings = []
+    role_to_id = {d.role: d.id for d in campaign.dossiers.values()}
+
+    def responder(request):
+        body = json.loads(request.content)
+        if "response_format" not in body:
+            return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+        system = body["messages"][0]["content"]
+        briefings.append(body["messages"][1]["content"])
+        commander = next(
+            cid for role, cid in role_to_id.items()
+            if role != "(awaiting command)" and f"commanding {role}" in system
+        )
+        payload = scripted_orders(campaign.state, commander, stance="defend").to_dict()
+        payload["dispatch"] = "ok"
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(payload)}}]})
+
+    campaign.client = LMStudioClient(model="t", transport=httpx.MockTransport(responder))
+    await campaign.play_turn({})
+    assert briefings, "expected at least one briefing"
+    assert all("Weather: mud" in b for b in briefings)
+
+
 def _active_capture(target, **kw):
     base = dict(id="t1", kind="capture", title="Take it", detail="",
                 issued_turn=1, deadline_turn=4, target=target,
@@ -295,3 +325,14 @@ def test_dismissal_blocked_without_capital():
     campaign.political_capital = 2
     with pytest.raises(ValueError, match="political capital"):
         campaign.dismiss("guderian", "schmidt")
+
+
+def test_cannot_dismiss_an_enemy_commander():
+    # The player commands the Axis; personnel actions must not reach across the
+    # front to reshuffle the Soviet order of battle (both are Soviet here).
+    campaign = Campaign.new(DATA_DIR)
+    before = campaign.political_capital
+    with pytest.raises(ValueError, match="your own"):
+        campaign.dismiss("pavlov", "rokossovsky")
+    assert campaign.political_capital == before
+    assert all(c.commander == "pavlov" for c in campaign.state.corps_for("pavlov"))

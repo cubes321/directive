@@ -74,8 +74,11 @@ def advance_railhead(
     along rail from the current railhead. Regions lost to the enemy fall out."""
     result = {r for r in converted if control.get(r) == side}
     added = 0
-    # breadth-first along held rail from the existing railhead
-    frontier = deque(result)
+    # Breadth-first along held rail from the existing railhead. Seed and grow the
+    # frontier in sorted order: iterating the `result` SET directly would make
+    # the choice of which region converts depend on string-hash randomization,
+    # so identical game seeds diverged across processes.
+    frontier = deque(sorted(result))
     while frontier and added < speed:
         here = frontier.popleft()
         for nxt in sorted(game_map.neighbors(here)):

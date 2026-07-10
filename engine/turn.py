@@ -50,13 +50,27 @@ class TurnReport:
     combats: list[dict] = field(default_factory=list)
 
 
-def _distribute_losses(corps_list: list[Corps], strength: int, organization: int) -> None:
-    """Spread loss points one at a time so the totals are applied exactly."""
-    alive = [c for c in corps_list]
-    for i in range(strength):
-        alive[i % len(alive)].take_losses(strength=1)
-    for i in range(organization):
-        alive[i % len(alive)].take_losses(organization=1)
+def _distribute_losses(
+    corps_list: list[Corps], strength: int, organization: int
+) -> tuple[int, int]:
+    """Spread loss points one at a time, round-robin, skipping any corps already
+    drained to zero so points are never absorbed by a destroyed corps (which
+    would report more casualties than were actually applied). Returns the totals
+    actually applied - never more than the force could absorb."""
+    def _apply(amount: int, attr: str) -> int:
+        applied = 0
+        able = [c for c in corps_list if getattr(c, attr) > 0]
+        while applied < amount and able:
+            for corps in list(able):
+                if applied >= amount:
+                    break
+                corps.take_losses(**{attr: 1})
+                applied += 1
+                if getattr(corps, attr) <= 0:
+                    able.remove(corps)
+        return applied
+
+    return _apply(strength, "strength"), _apply(organization, "organization")
 
 
 def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> TurnReport:
@@ -124,11 +138,15 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         defender_details = [power_breakdown(c) for c in defenders]
         fought.update(c.id for c in attackers + defenders)
 
-        _distribute_losses(attackers, result.attacker_losses, result.attacker_org_losses)
+        applied_attacker_losses, _ = _distribute_losses(
+            attackers, result.attacker_losses, result.attacker_org_losses
+        )
 
+        applied_defender_losses = 0
         if result.defender_retreats:
             org_share = result.defender_org_losses // len(defenders)
             for corps in defenders:
+                before = corps.strength
                 retreat_to = _retreat_region(state, region, corps.side)
                 if retreat_to is None:
                     corps.take_losses(strength=100, organization=100)  # surrenders
@@ -139,8 +157,11 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
                         organization=org_share,
                     )
                     corps.location = retreat_to
+                applied_defender_losses += before - corps.strength
         else:
-            _distribute_losses(defenders, result.defender_losses, result.defender_org_losses)
+            applied_defender_losses, _ = _distribute_losses(
+                defenders, result.defender_losses, result.defender_org_losses
+            )
 
         defenders_gone = result.defender_retreats or all(c.is_destroyed for c in defenders)
         if defenders_gone:
@@ -156,8 +177,8 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
                 "attackers": attacker_ids,
                 "defenders": [c.id for c in defenders],
                 "odds": round(result.odds, 2),
-                "attacker_losses": result.attacker_losses,
-                "defender_losses": result.defender_losses,
+                "attacker_losses": applied_attacker_losses,
+                "defender_losses": applied_defender_losses,
                 "outcome": "defender_retreated" if defenders_gone else "defender_held",
                 "encircled": result.defender_retreats
                 and all(c.is_destroyed for c in defenders),

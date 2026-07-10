@@ -1,6 +1,66 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from engine.map import GameMap
-from engine.supply import compute_supply
+from engine.supply import advance_railhead, compute_supply
 from engine.units import Corps
+
+REPO_ROOT = Path(__file__).parent.parent
+
+
+def _branching_map():
+    # src --rail-- a --rail-- b   and   src --rail-- m --rail-- n
+    # railhead {src,a,m}; b and n are the two frontier candidates.
+    return GameMap.from_dict(
+        {
+            "regions": [
+                {"id": r, "name": r.title(), "terrain": "clear"}
+                for r in ["src", "a", "b", "m", "n"]
+            ],
+            "edges": [
+                {"between": ["src", "a"], "road": "highway", "rail": True},
+                {"between": ["a", "b"], "road": "highway", "rail": True},
+                {"between": ["src", "m"], "road": "highway", "rail": True},
+                {"between": ["m", "n"], "road": "highway", "rail": True},
+            ],
+        }
+    )
+
+
+def test_advance_railhead_picks_a_deterministic_frontier():
+    game_map = _branching_map()
+    control = {r: "axis" for r in ["src", "a", "b", "m", "n"]}
+    # With speed 1 and two candidates (b via a, n via m), the choice must be
+    # fixed by a stable traversal order, not by set-iteration order.
+    result = advance_railhead(game_map, control, "axis", {"src", "a", "m"}, speed=1)
+    added = result - {"src", "a", "m"}
+    assert added == {"b"}, added
+
+
+def _opening_axis_railhead(hashseed: int) -> str:
+    code = (
+        "from pathlib import Path; import asyncio;"
+        "from commanders.campaign import Campaign;"
+        "c = Campaign.new(Path('data'));"
+        "asyncio.run(c.play_turn({}));"
+        "print(','.join(sorted(c.state.railheads['axis'])))"
+    )
+    env = {**os.environ, "PYTHONHASHSEED": str(hashseed)}
+    out = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True, text=True, env=env, cwd=REPO_ROOT,
+    )
+    assert out.returncode == 0, out.stderr
+    return out.stdout.strip().splitlines()[-1]
+
+
+def test_railhead_conversion_is_deterministic_across_hash_seeds():
+    # Same game seed must give the same railhead regardless of the interpreter's
+    # string-hash randomization; otherwise campaigns are not reproducible.
+    results = {_opening_axis_railhead(s) for s in (1, 2, 6)}
+    assert len(results) == 1, f"railhead varied across hash seeds: {results}"
 
 
 def make_map():

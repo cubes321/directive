@@ -28,6 +28,13 @@ async def test_new_game_returns_snapshot(api):
     assert not any(c["id"].startswith("sov_") for c in snap["corps"])
 
 
+async def test_okh_opening_directive_appears_in_dispatches(api):
+    # OKH's opening objective is stored at game start; it must reach the
+    # player-visible DISPATCHES inbox, not be filtered out like the enemy's.
+    snap = (await api.post("/api/game/new")).json()
+    assert any(d["commander"] == "okh" for d in snap["dispatches"])
+
+
 async def test_directives_are_stored(api):
     await api.post("/api/game/new")
     r = await api.post("/api/game/directives", json={"guderian": "Take Minsk."})

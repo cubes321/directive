@@ -37,6 +37,7 @@ from engine.state import GameState
 from engine.telemetry import build_turn_log
 from engine.turn import TurnReport, resolve_turn
 from engine.victory import check_victory
+from engine.weather import weather_for_turn
 
 STARTING_POLITICAL_CAPITAL = 10
 DISMISSAL_BASE_COST = 2
@@ -156,6 +157,11 @@ class Campaign:
     async def play_turn(self, player_directives: dict[str, str]) -> TurnResult:
         if self.current_verdict() is not None:
             raise ValueError("the campaign is over")
+        # Set this turn's weather BEFORE briefings so orders are planned and
+        # validated on the same conditions resolution will use (resolve_turn
+        # recomputes the identical value). Otherwise a transition turn (mud at
+        # 16, snow at 22) briefs on last week's weather.
+        self.state.weather = weather_for_turn(self.state.turn)
         self.state.directives.update(player_directives)
         self.state.directives.update(soviet_directives(self.state))
 
@@ -359,6 +365,8 @@ class Campaign:
         replacement = self.dossiers.get(replacement_id)
         if dismissed is None or replacement is None:
             raise ValueError("unknown commander")
+        if dismissed.side != self.player_side:
+            raise ValueError(f"{dismissed.name} is not one of your own commanders")
         if replacement.side != dismissed.side:
             raise ValueError(f"{replacement.name} serves the other side")
         if self.state.corps_for(replacement_id):

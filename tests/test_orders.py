@@ -52,6 +52,22 @@ def test_valid_orders_produce_no_errors():
     assert validate_orders(orders, game_map, corps, control) == []
 
 
+def test_duplicate_orders_for_one_corps_are_rejected():
+    # An LLM issuing e.g. advance then defend for the same corps must not slip
+    # through: resolution would move it AND record a defend, blending the two.
+    game_map, corps, control = setup()
+    orders = CommanderOrders(
+        commander="guderian",
+        orders=[
+            CorpsOrder(corps_id="xxiv_pz", posture="advance", objective="minsk"),
+            CorpsOrder(corps_id="xxiv_pz", posture="defend", objective=None),
+        ],
+        dispatch="",
+    )
+    errors = validate_orders(orders, game_map, corps, control)
+    assert any("xxiv_pz" in e and "one" in e.lower() for e in errors)
+
+
 def test_ordering_another_commanders_corps_is_an_error():
     game_map, corps, control = setup()
     orders = CommanderOrders(
