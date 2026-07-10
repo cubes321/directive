@@ -93,6 +93,19 @@ def all_axis_control():
     return {r: "axis" for r in ["source", "a", "b", "c", "d", "e"]}
 
 
+def test_supply_legs_counts_truck_legs_from_the_railhead():
+    from engine.supply import supply_legs
+    m = make_map()  # source -rail- a -rail- b -road- c -road- d -road- e
+    control = all_axis_control()
+    converted = {"source", "a"}  # railhead reaches 'a'
+    legs = supply_legs(m, control, "axis", ["source"], converted)
+    assert legs["source"] == 0
+    assert legs["a"] == 0      # on the converted railhead
+    assert legs["b"] == 1      # rail exists but b is unconverted -> one leg
+    assert legs["c"] == 2      # road leg
+    assert legs["e"] == 4
+
+
 def test_corps_on_rail_network_fully_supplied():
     m = make_map()
     corps = make_corps("b")

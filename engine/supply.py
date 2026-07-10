@@ -124,6 +124,19 @@ def _truck_legs_from_sources(
     return best
 
 
+def supply_legs(
+    game_map: GameMap,
+    control: dict[str, str],
+    side: str,
+    sources: list[str],
+    converted: set[str] | None = None,
+) -> dict[str, int]:
+    """Minimum truck legs from a supply source to each friendly region (0 = on
+    the converted railhead, N = N legs beyond it). Powers the map supply
+    gradient; a thin public view of the value ``compute_supply`` already derives."""
+    return _truck_legs_from_sources(game_map, control, side, sources, converted)
+
+
 def compute_supply(
     game_map: GameMap,
     control: dict[str, str],
