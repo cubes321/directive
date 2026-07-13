@@ -177,6 +177,26 @@ async def test_server_error_still_degrades_to_hold_orders():
     assert all(o.posture == "defend" for o in orders.orders)
 
 
+async def test_token_usage_is_logged(tmp_path):
+    state, dossier = setup_state()
+
+    def responder(request):
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": json.dumps(valid_payload())}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 40, "total_tokens": 140},
+        })
+
+    client = make_client(responder, log_dir=tmp_path)
+    await client.request_orders(state, dossier)
+    token_log = tmp_path / "tokens.jsonl"
+    assert token_log.exists()
+    entries = [json.loads(x) for x in token_log.read_text(encoding="utf-8").splitlines() if x.strip()]
+    assert entries[-1]["role"] == "guderian"
+    assert entries[-1]["prompt_tokens"] == 100
+    assert entries[-1]["completion_tokens"] == 40
+    assert entries[-1]["total_tokens"] == 140
+
+
 async def test_transcripts_are_logged(tmp_path):
     state, dossier = setup_state()
     client = make_client(lambda r: chat_response(valid_payload()), log_dir=tmp_path)

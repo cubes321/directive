@@ -96,7 +96,7 @@ class LMStudioClient:
         outcome = "fallback"
         for attempt in (1, 2):
             request_payload = self._payload(messages, self._model_for(dossier.id))
-            content = await self._chat(request_payload)
+            content = await self._chat(request_payload, role=dossier.id)
             transcript["attempts"].append({"response": content})
             transcript["request"] = request_payload  # last request sent
 
@@ -144,7 +144,7 @@ class LMStudioClient:
             "temperature": self.temperature,
             **self.params,
         }
-        content = await self._chat(payload)
+        content = await self._chat(payload, role=role)
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
         return content
 
@@ -157,7 +157,7 @@ class LMStudioClient:
             **self.params,
         }
 
-    async def _chat(self, payload: dict) -> str:
+    async def _chat(self, payload: dict, role: str | None = None) -> str:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
         try:
             # The semaphore bounds in-flight requests to the server's real
@@ -172,7 +172,9 @@ class LMStudioClient:
                         f"{self.base_url}/chat/completions", json=payload
                     )
                     response.raise_for_status()
-                    message = response.json()["choices"][0]["message"]
+                    data = response.json()
+                    self._log_tokens(data.get("usage"), payload.get("model"), role)
+                    message = data["choices"][0]["message"]
                     # Thinking models served by LM Studio sometimes leave
                     # "content" empty and put everything in "reasoning_content".
                     return message.get("content") or message.get("reasoning_content") or ""
@@ -197,6 +199,24 @@ class LMStudioClient:
             return ""
         except httpx.ReadTimeout:
             return ""  # treated as an unparseable response -> repair/fallback path
+
+    def _log_tokens(self, usage: dict | None, model: str | None, role: str | None) -> None:
+        """Append one line per call to tokens.jsonl: how many tokens went out and
+        came back, tagged by commander/role and model. No-op without a log dir or
+        a usage block (local servers may omit it)."""
+        if self.log_dir is None or not usage:
+            return
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "time": time.time(),
+            "role": role,
+            "model": model,
+            "prompt_tokens": usage.get("prompt_tokens"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "total_tokens": usage.get("total_tokens"),
+        }
+        with (self.log_dir / "tokens.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
 
     @staticmethod
     def _error_detail(response: httpx.Response) -> str:
