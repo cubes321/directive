@@ -203,8 +203,8 @@ it reads the file when it builds the client.
 | `eval_guderian.py --turns 10 --swap-personality` | the Phase-2 evaluation: one LLM commander, with a personality-swap control |
 | `trace_campaign.py` | fast scripted campaign trace (no LLM) |
 | `print_briefing.py guderian` | show exactly what a commander sees |
-| `analyze_logs.py campaign` | tally LLM outcomes and failure reasons from `logs/` |
-| `analyze_failures.py campaign` | per-commander outcome breakdown and empty-response counts |
+| `analyze_logs.py` | tally LLM outcomes and failure reasons for the latest run (pass a name to target another, e.g. `eval_guderian`) |
+| `analyze_failures.py` | per-commander outcome breakdown and empty-response counts for the latest run |
 | `probe_concurrency.py` | measure your backend's latency under load (sequential vs gated) |
 | `verify_turn.py` | run one full live turn and report per-commander outcomes |
 

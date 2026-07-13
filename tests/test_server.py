@@ -7,10 +7,21 @@ from server.app import app, get_session
 @pytest.fixture
 async def api(tmp_path):
     session = get_session()
-    session.reset(save_path=tmp_path / "campaign.json", use_llm=False)
+    session.reset(save_path=tmp_path / "campaign.json", use_llm=False,
+                  logs_root=tmp_path / "logs")
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
+
+async def test_new_game_scopes_logs_to_a_run_dir(tmp_path):
+    session = get_session()
+    session.reset(save_path=tmp_path / "c.json", use_llm=False, logs_root=tmp_path / "logs")
+    campaign = session.new_game()
+    runs = list((tmp_path / "logs").glob("run-*"))
+    assert len(runs) == 1, "one run directory per game"
+    await campaign.play_turn({})
+    assert (runs[0] / "turns" / "turn01.json").exists()  # telemetry lands in the run dir
 
 
 async def test_new_game_returns_snapshot(api):

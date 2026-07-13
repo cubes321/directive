@@ -58,6 +58,7 @@ outside (e.g. telemetry), the engine *builds the data* and a caller *writes it*
 
 - Line endings normalized via `.gitattributes` (LF in repo). config.toml holds
   the API key and is gitignored; `config.example.toml` is the committed template.
-- Logs (`logs/campaign/`, `logs/turns/`, `logs/campaign/tokens.jsonl`) accumulate
-  across playthroughs and are gitignored — they are NOT scoped per run yet, so
-  mtime-sorting mixes games when analyzing.
+- Logs are gitignored and **scoped per run**: each server session writes to
+  `logs/run-<timestamp>/` (`campaign/` transcripts + `tokens.jsonl`, `turns/`
+  telemetry). The newest `run-*` dir is the current run; `commanders/runlog.py`
+  resolves it, and the analysis scripts default to it.

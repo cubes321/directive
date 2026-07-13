@@ -19,6 +19,7 @@ from commanders.briefing import build_briefing
 from commanders.campaign import Campaign
 from commanders.config import load_config
 from commanders.llm import LMStudioClient, LMStudioUnavailable
+from commanders.runlog import new_run_dir
 from engine.fog import visible_enemy_contacts
 from engine.supply import default_railhead_on_load, supply_legs
 from engine.turn import TurnReport
@@ -39,6 +40,8 @@ class Session:
         self.model: str | None = None  # explicit override; None = config.toml
         self.last_report: TurnReport | None = None
         self.last_communiques: list = []
+        self.logs_root = ROOT / "logs"
+        self.run_dir: Path | None = None  # this session's per-run log directory
 
     def _client(self) -> LMStudioClient | None:
         if not self.use_llm:
@@ -46,10 +49,16 @@ class Session:
         config = load_config()
         if self.model:
             config = replace(config, model=self.model)
-        return LMStudioClient.from_config(config, log_dir=ROOT / "logs" / "campaign")
+        return LMStudioClient.from_config(config, log_dir=self.run_dir / "campaign")
+
+    def _start_run(self) -> None:
+        self.run_dir = new_run_dir(self.logs_root)
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+        self.last_report = None
+        self.last_communiques = []
 
     def reset(self, save_path: Path | None = None, use_llm: bool = True,
-              model: str | None = None) -> None:
+              model: str | None = None, logs_root: Path | None = None) -> None:
         self.campaign = None
         self.last_report = None
         self.last_communiques = []
@@ -57,21 +66,21 @@ class Session:
         self.model = model
         if save_path is not None:
             self.save_path = Path(save_path)
+        if logs_root is not None:
+            self.logs_root = Path(logs_root)
 
     def new_game(self) -> Campaign:
+        self._start_run()
         self.campaign = Campaign.new(
-            DATA_DIR, client=self._client(), turn_log_dir=ROOT / "logs" / "turns"
+            DATA_DIR, client=self._client(), turn_log_dir=self.run_dir / "turns"
         )
-        self.last_report = None
-        self.last_communiques = []
         return self.campaign
 
     def reload(self) -> Campaign:
+        self._start_run()
         self.campaign = Campaign.load(
-            self.save_path, client=self._client(), turn_log_dir=ROOT / "logs" / "turns"
+            self.save_path, client=self._client(), turn_log_dir=self.run_dir / "turns"
         )
-        self.last_report = None
-        self.last_communiques = []
         return self.campaign
 
     def require_campaign(self) -> Campaign:

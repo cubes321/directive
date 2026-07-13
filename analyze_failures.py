@@ -5,7 +5,10 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-log_dir = Path(__file__).parent / "logs" / (sys.argv[1] if len(sys.argv) > 1 else "campaign")
+from commanders.runlog import resolve_log_dir
+
+log_dir = resolve_log_dir(sys.argv[1] if len(sys.argv) > 1 else None,
+                          Path(__file__).parent / "logs")
 
 per_cmd = defaultdict(Counter)
 empty_per_cmd = Counter()
