@@ -287,6 +287,9 @@ function renderDispatches() {
 function renderCommanders() {
   const page = $("#tab-commanders");
   page.textContent = "";
+  // A fresh campaign resets morale to defaults; drop the previous game's cached
+  // values so the bars don't tween from stale numbers on the first render.
+  if (snap.turn === 1) for (const k in prevMorale) delete prevMorale[k];
   for (const cmd of snap.commanders) {
     const card = document.createElement("div");
     card.className = "cmd-card";

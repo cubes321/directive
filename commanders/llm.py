@@ -66,7 +66,7 @@ class LMStudioClient:
 
     @classmethod
     def from_config(cls, config, log_dir: Path | None = None,
-                    transport: httpx.BaseTransport | None = None) -> "LMStudioClient":
+                    transport: httpx.BaseTransport | None = None) -> LMStudioClient:
         return cls(
             base_url=config.base_url,
             model=config.model,
@@ -185,12 +185,14 @@ class LMStudioClient:
             ) from e
         except httpx.HTTPStatusError as e:
             code = e.response.status_code
-            # A 4xx (except 429 rate-limit) is a configuration error - wrong
-            # model name, unsupported parameter, bad API key - that affects
-            # every request identically. Surface it loudly instead of laundering
-            # it into an empty "invalid JSON" response and hold-orders. A 5xx or
-            # 429 is transient and per-request: degrade to fallback and go on.
-            if 400 <= code < 500 and code != 429:
+            # A 4xx is usually a configuration error - wrong model name,
+            # unsupported parameter, bad API key - that affects every request
+            # identically. Surface it loudly instead of laundering it into an
+            # empty "invalid JSON" response and hold-orders. The exceptions are
+            # transient, per-request 4xx (rate limit, request timeout, too
+            # early), which degrade to fallback like a 5xx and let the turn go on.
+            TRANSIENT_4XX = {408, 425, 429}
+            if 400 <= code < 500 and code not in TRANSIENT_4XX:
                 raise LMStudioUnavailable(
                     f"The server at {self.base_url} rejected the request "
                     f"(HTTP {code}): {self._error_detail(e.response)}. Check the "

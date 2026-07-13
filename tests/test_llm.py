@@ -177,6 +177,19 @@ async def test_server_error_still_degrades_to_hold_orders():
     assert all(o.posture == "defend" for o in orders.orders)
 
 
+async def test_request_timeout_408_degrades_not_raises():
+    # 408 is a 4xx but transient (the request timed out), not a config error;
+    # it must degrade to hold-orders like a read timeout, not halt the turn.
+    state, dossier = setup_state()
+
+    def responder(request):
+        return httpx.Response(408, text="request timeout")
+
+    client = make_client(responder)
+    orders = await client.request_orders(state, dossier)
+    assert all(o.posture == "defend" for o in orders.orders)
+
+
 async def test_token_usage_is_logged(tmp_path):
     state, dossier = setup_state()
 
