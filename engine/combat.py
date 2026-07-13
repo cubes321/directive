@@ -16,6 +16,24 @@ KIND_MULTIPLIER = {"panzer": 1.5, "motorized": 1.2, "infantry": 1.0}
 TERRAIN_DEFENSE = {"urban": 1.5, "forest": 1.3, "marsh": 1.4, "river_line": 1.4, "clear": 1.0}
 RETREAT_THRESHOLD = 1.3
 BASE_LOSS = 8
+# A corps out of supply is nearly combat-ineffective (was 0.30, which created a
+# dead zone where supply 0 and 20 fought identically and let outrun spearheads
+# win anyway). Lower floor = deep shortfalls bite; full supply is unaffected.
+SUPPLY_FLOOR = 0.10
+
+
+def _supply_factor(corps: Corps) -> float:
+    return max(SUPPLY_FLOOR, corps.supply / 100)
+
+
+def _kind_multiplier(corps: Corps) -> float:
+    """Mechanized shock is a fuel-dependent edge: the bonus above 1.0 fades with
+    supply, so a panzer corps out of petrol fights closer to plain infantry."""
+    return 1.0 + (KIND_MULTIPLIER[corps.kind] - 1.0) * _supply_factor(corps)
+
+
+def _experience_factor(corps: Corps) -> float:
+    return 0.75 + corps.experience / 200
 
 
 @dataclass(frozen=True)
@@ -29,14 +47,12 @@ class CombatResult:
 
 
 def combat_power(corps: Corps) -> float:
-    supply_factor = max(0.3, corps.supply / 100)
-    experience_factor = 0.75 + corps.experience / 200
     return (
         corps.strength
         * (corps.organization / 100)
-        * KIND_MULTIPLIER[corps.kind]
-        * supply_factor
-        * experience_factor
+        * _kind_multiplier(corps)
+        * _supply_factor(corps)
+        * _experience_factor(corps)
     )
 
 
@@ -52,9 +68,9 @@ def power_breakdown(corps: Corps) -> dict:
         "strength": corps.strength,
         "organization": corps.organization,
         "supply": corps.supply,
-        "kind_multiplier": KIND_MULTIPLIER[corps.kind],
-        "supply_factor": round(max(0.3, corps.supply / 100), 3),
-        "experience_factor": round(0.75 + corps.experience / 200, 3),
+        "kind_multiplier": round(_kind_multiplier(corps), 3),
+        "supply_factor": round(_supply_factor(corps), 3),
+        "experience_factor": round(_experience_factor(corps), 3),
         "power": round(combat_power(corps), 1),
     }
 

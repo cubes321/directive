@@ -49,10 +49,11 @@ def test_power_breakdown_explains_the_number():
     b = power_breakdown(c)
     assert b["id"] == "ax1"
     assert b["kind"] == "panzer"
-    assert b["kind_multiplier"] == 1.5
+    # at supply 25 the panzer shock bonus has faded: 1.0 + 0.5 * 0.25
+    assert abs(b["kind_multiplier"] - 1.125) < 1e-9
     assert b["supply"] == 25
-    assert abs(b["supply_factor"] - max(0.3, 25 / 100)) < 1e-9
-    assert abs(b["power"] - combat_power(c)) < 1e-6
+    assert abs(b["supply_factor"] - max(0.10, 25 / 100)) < 1e-9
+    assert abs(b["power"] - round(combat_power(c), 1)) < 1e-9
 
 
 def test_unit_stats_lists_living_corps_with_location_and_stats():
