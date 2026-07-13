@@ -592,6 +592,42 @@ function renderBattles() {
   }
 }
 
+function renderMovements() {
+  const page = $("#tab-movements");
+  page.textContent = "";
+  const own = {};
+  snap.corps.forEach((c) => (own[c.id] = c));
+  // only our own corps — enemy movement is behind the fog
+  const moves = ((snap.last_report && snap.last_report.movements) || []).filter((m) => own[m.corps]);
+  if (!moves.length) {
+    const div = document.createElement("div");
+    div.className = "empty-note";
+    div.textContent = "No repositioning this week (corps attacked, held, or rested — see BATTLE REPORTS).";
+    page.appendChild(div);
+    return;
+  }
+  const regionName = {};
+  snap.regions.forEach((r) => (regionName[r.id] = r.name));
+  for (const m of moves) {
+    const c = own[m.corps];
+    const dest = regionName[m.to] || m.to;
+    const div = document.createElement("div");
+    div.className = "move-line" + (m.bounced ? " bounced" : "");
+    const where = document.createElement("span");
+    where.className = "where";
+    where.textContent = c.id;
+    div.appendChild(where);
+    const who = commanderSurname(c.commander);
+    const text = m.arrived
+      ? ` — reinforcement under ${who} detrained at ${dest}.`
+      : m.bounced
+      ? ` — ${who} ordered a move to ${dest}, but it was full — the corps held position.`
+      : ` — ${who}'s corps advanced to ${dest}.`;
+    div.appendChild(document.createTextNode(text));
+    page.appendChild(div);
+  }
+}
+
 /* ── end turn ────────────────────────────────────── */
 
 const TICKER_LINES = [
@@ -795,6 +831,7 @@ function renderAll() {
   renderCommanders();
   renderOob();
   renderBattles();
+  renderMovements();
   renderVerdict();
   renderCommuniques();
   renderDiversion();

@@ -445,6 +445,16 @@ main { flex: 1; display: flex; min-height: 0; }
 .battle-line .where { font-family: var(--font-display); font-size: 14px; letter-spacing: 1.5px; }
 .empty-note { font-family: var(--font-type); color: #877c5d; font-size: 13px; padding: 20px 8px; }
 
+/* movements this week (same card idiom as battle reports) */
+.move-line {
+  font-family: var(--font-type); font-size: 12.5px; line-height: 1.5;
+  background: var(--bone); color: var(--ink);
+  border-left: 4px solid var(--own); padding: 8px 12px; margin-bottom: 10px;
+  box-shadow: 3px 4px 0 rgba(0,0,0,.4);
+}
+.move-line.bounced { border-left-color: var(--gold); }  /* a bounce: worth noticing */
+.move-line .where { font-family: var(--font-display); font-size: 14px; letter-spacing: 1.5px; }
+
 /* ── overlay & toast ─────────────────────────────── */
 #overlay {
   position: fixed; inset: 0; z-index: 100;
