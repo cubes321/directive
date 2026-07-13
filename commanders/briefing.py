@@ -11,12 +11,28 @@ from __future__ import annotations
 from engine.fog import visible_enemy_contacts
 from engine.movement import movement_points, reachable
 from engine.state import GameState
+from engine.turn import STACKING_LIMIT
 
 MAX_OPTIONS_PER_CORPS = 3
 
 
 def _region_label(state: GameState, region_id: str) -> str:
     return f"{state.game_map.regions[region_id].name} [id: {region_id}]"
+
+
+def _is_full(state: GameState, region_id: str, side: str) -> bool:
+    """A region already holding the stacking limit of friendly corps has no room
+    for another this week - a move there would bounce."""
+    return sum(
+        1 for c in state.corps_at(region_id) if not c.is_destroyed and c.side == side
+    ) >= STACKING_LIMIT
+
+
+def _range_label(state: GameState, region_id: str, side: str) -> str:
+    label = _region_label(state, region_id)
+    if _is_full(state, region_id, side):
+        label += " (FULL - no room)"
+    return label
 
 
 def _corps_status(state: GameState, corps) -> str:
@@ -120,6 +136,7 @@ def build_briefing(state: GameState, commander: str) -> str:
         )
         lines.append(
             "  In range this week: "
-            + (", ".join(_region_label(state, r) for r in sorted(in_range)) or "(nowhere)")
+            + (", ".join(_range_label(state, r, corps.side) for r in sorted(in_range))
+               or "(nowhere)")
         )
     return "\n".join(lines)

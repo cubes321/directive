@@ -2,8 +2,45 @@ from pathlib import Path
 
 from commanders.briefing import build_briefing
 from engine.scenario import load_scenario
+from engine.state import GameState
 
 DATA_DIR = Path(__file__).parent.parent / "data"
+
+
+def _stacking_state():
+    # home --(rail)-- hub, home --(rail)-- spur. Guderian sits at home; hub is
+    # already packed with three friendly corps (the stacking limit).
+    return GameState.from_dict({
+        "map": {
+            "regions": [{"id": r, "name": r.title(), "terrain": "clear"}
+                        for r in ["home", "hub", "spur"]],
+            "edges": [
+                {"between": ["home", "hub"], "road": "highway", "rail": True},
+                {"between": ["home", "spur"], "road": "highway", "rail": True},
+            ],
+        },
+        "corps": [
+            {"id": "g1", "name": "G1", "side": "axis", "kind": "panzer",
+             "location": "home", "commander": "guderian"},
+            {"id": "f1", "name": "F1", "side": "axis", "kind": "infantry",
+             "location": "hub", "commander": "kluge"},
+            {"id": "f2", "name": "F2", "side": "axis", "kind": "infantry",
+             "location": "hub", "commander": "kluge"},
+            {"id": "f3", "name": "F3", "side": "axis", "kind": "infantry",
+             "location": "hub", "commander": "kluge"},
+        ],
+        "control": {"home": "axis", "hub": "axis", "spur": "axis"},
+        "supply_sources": {"axis": ["home"]},
+        "turn": 1, "seed": 1,
+    })
+
+
+def test_briefing_marks_full_regions_in_range():
+    text = build_briefing(_stacking_state(), "guderian")
+    in_range = next(l for l in text.splitlines() if l.strip().startswith("In range"))
+    assert "Hub [id: hub] (FULL" in in_range   # 3 friendly corps -> no room
+    assert "Spur [id: spur]" in in_range
+    assert "Spur [id: spur] (FULL" not in in_range  # empty -> not marked
 
 
 def briefing_for_guderian():
