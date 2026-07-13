@@ -6,7 +6,7 @@ to the model for one repair attempt before falling back to ``fallback_orders``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from engine.map import GameMap
 from engine.movement import movement_points, reachable

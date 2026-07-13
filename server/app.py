@@ -8,13 +8,12 @@ side's corps plus fog-of-war contacts.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-
-from dataclasses import replace
 
 from commanders.briefing import build_briefing
 from commanders.campaign import Campaign
@@ -257,7 +256,7 @@ async def end_turn():
     try:
         result = await campaign.play_turn({})
     except LMStudioUnavailable as e:
-        raise HTTPException(503, str(e))
+        raise HTTPException(503, str(e)) from e
     session.last_report = result.report
     session.last_communiques = result.communiques
     campaign.save(session.save_path)
@@ -271,7 +270,7 @@ async def dismiss(body: dict):
     try:
         cost = campaign.dismiss(body["commander"], body["replacement"])
     except (ValueError, KeyError) as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
     campaign.save(session.save_path)
     return {
         "ok": True,
@@ -287,9 +286,9 @@ async def converse(body: dict):
     try:
         reply = await campaign.converse(body["commander"], body["message"])
     except (ValueError, KeyError) as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
     except LMStudioUnavailable as e:
-        raise HTTPException(503, str(e))
+        raise HTTPException(503, str(e)) from e
     campaign.save(session.save_path)
     return {"reply": reply}
 
@@ -301,7 +300,7 @@ async def decide_objective(body: dict):
     try:
         result = campaign.decide_diversion(body["id"], bool(body["accept"]))
     except (ValueError, KeyError) as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
     campaign.save(session.save_path)
     return {**result, "political_capital": campaign.political_capital}
 

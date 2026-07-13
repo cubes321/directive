@@ -27,8 +27,8 @@ from commanders.communique import (
 from commanders.dossier import Dossier, load_dossiers
 from commanders.intent import soviet_directives
 from commanders.llm import LMStudioClient
-from commanders.prompts import build_persona_prompt, build_system_prompt
 from commanders.orchestrator import gather_orders
+from commanders.prompts import build_persona_prompt
 from commanders.records import update_morale, update_track_records
 from commanders.scripted import scripted_orders
 from engine.objectives import advance_objectives, issue_due_objectives

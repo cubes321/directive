@@ -27,7 +27,7 @@ async def gather_orders(
     llm_results = await asyncio.gather(
         *(client.request_orders(state, dossiers[cid]) for cid in llm_ids)
     )
-    all_orders = dict(zip(llm_ids, llm_results))
+    all_orders = dict(zip(llm_ids, llm_results, strict=True))
     for cid, (stance, goal) in scripted.items():
         all_orders[cid] = scripted_orders(state, cid, stance=stance, goal=goal)
     return all_orders

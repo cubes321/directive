@@ -1,6 +1,5 @@
 """Dev tool: inspect the raw LM Studio response structure for one call."""
 
-import json
 
 import httpx
 

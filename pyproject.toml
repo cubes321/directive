@@ -13,11 +13,22 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    "ruff>=0.6",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+# pyflakes (F) catches unused imports/undefined names; pycodestyle (E), import
+# sorting (I), bugbear (B), and pyupgrade (UP) round it out without being noisy.
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]  # line length is advisory here, not enforced
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -37,7 +37,7 @@ def _stacking_state():
 
 def test_briefing_marks_full_regions_in_range():
     text = build_briefing(_stacking_state(), "guderian")
-    in_range = next(l for l in text.splitlines() if l.strip().startswith("In range"))
+    in_range = next(ln for ln in text.splitlines() if ln.strip().startswith("In range"))
     assert "Hub [id: hub] (FULL" in in_range   # 3 friendly corps -> no room
     assert "Spur [id: spur]" in in_range
     assert "Spur [id: spur] (FULL" not in in_range  # empty -> not marked
@@ -83,7 +83,7 @@ def test_briefing_offers_staff_options_with_region_ids():
 def test_briefing_lists_legal_destinations_per_corps():
     text = briefing_for_guderian()
     # xxiv_pz at brest: baranovichi and pripyat are in range, minsk is not
-    in_range_line = next(l for l in text.splitlines() if l.strip().startswith("In range"))
+    in_range_line = next(ln for ln in text.splitlines() if ln.strip().startswith("In range"))
     assert "baranovichi" in in_range_line
     assert "pripyat" in in_range_line
     assert "minsk" not in in_range_line

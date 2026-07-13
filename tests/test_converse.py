@@ -4,8 +4,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from commanders.campaign import Campaign
 from commanders.briefing import build_briefing
+from commanders.campaign import Campaign
 from commanders.llm import LMStudioClient
 
 DATA_DIR = Path(__file__).parent.parent / "data"

@@ -1,5 +1,4 @@
 from engine.state import GameState
-from engine.units import Corps
 
 
 def minimal_state_data():

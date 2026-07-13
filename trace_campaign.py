@@ -9,7 +9,7 @@ from engine.turn import resolve_turn
 DATA_DIR = Path(__file__).parent / "data"
 
 state = load_scenario(DATA_DIR)
-for turn in range(24):
+for _ in range(24):
     orders = {}
     for cmd in ["guderian", "hoth", "kluge", "strauss", "weichs"]:
         orders[cmd] = scripted_orders(state, cmd, stance="advance", goal="moscow")

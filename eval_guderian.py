@@ -109,7 +109,7 @@ async def main() -> None:
             )
             results.append(await play(args.turns, args.model, cautious, "cautious"))
     except LMStudioUnavailable as e:
-        raise SystemExit(f"\nABORT: {e}")
+        raise SystemExit(f"\nABORT: {e}") from e
 
     print("\n\n========== EVALUATION SUMMARY ==========")
     for r in results:
