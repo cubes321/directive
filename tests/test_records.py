@@ -138,6 +138,21 @@ def test_signal_warm_chance_is_lower_for_prouder_commanders():
     assert 0.05 <= _signal_warm_chance(9) <= 0.9
 
 
+async def test_morale_stays_in_range_even_pushed_to_the_boundaries():
+    # Start every commander at the clamp edges, then play a stretch of turns:
+    # confidence/fatigue/relationship must never leave [0, 10].
+    c = Campaign.new(DATA_DIR)  # scripted (no client)
+    for d in c.dossiers.values():
+        d.dynamic.update(confidence=10, fatigue=10, relationship=0)
+    for _ in range(10):
+        if c.current_verdict():
+            break
+        await c.play_turn({})
+        for d in c.dossiers.values():
+            for key in ("confidence", "fatigue", "relationship"):
+                assert 0 <= d.dynamic[key] <= 10, (d.id, key, d.dynamic[key])
+
+
 def test_signalling_can_warm_relationship_subject_to_the_roll():
     c = Campaign.new(DATA_DIR)
     gud = "guderian"
