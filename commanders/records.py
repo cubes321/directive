@@ -53,10 +53,17 @@ def update_morale(
     rng: random.Random | None = None,
     _force_roll: float | None = None,
 ) -> None:
-    """Evolve each player-side commander's dynamic (confidence/fatigue/
-    relationship) from this turn's outcomes and whether the player signalled
-    him. Psychological only - never touches the engine. Deterministic: the
-    signalling roll is seeded and commanders are visited in id order."""
+    """Evolve every commander's dynamic (confidence/fatigue/relationship) from
+    this turn's outcomes. Both sides are played by the model, so both sides
+    feel their war - running this for the player's side alone left enemy
+    dossiers pinned at their factory values for a whole campaign.
+
+    ``relationship`` means standing with whoever this commander answers to: the
+    player for his own commanders, their own high command for the enemy's. Only
+    the former can be warmed by a SIGNAL, because only he has that channel.
+
+    Psychological only - never touches the engine. Deterministic: the signalling
+    roll is seeded and commanders are visited in id order."""
     rng = rng or random.Random(state.seed * 7907 + report.turn)
     moved = {m["corps"] for m in report.movements
              if not m.get("bounced") and not m.get("arrived")}
@@ -86,11 +93,13 @@ def update_morale(
                 continue
             fought.add(cmd)
             conf[cmd] += -2 if won else 1   # lost the position, or held it
+            if won:
+                # Losing ground your superior told you to hold costs standing
+                # with him. Merely holding earns nothing: that was the job.
+                rel[cmd] -= 1
 
     for cid in sorted(dossiers):
         dossier = dossiers[cid]
-        if dossier.side != player_side:
-            continue
         dyn = dossier.dynamic
         dc = max(-CONF_CAP, min(CONF_CAP, conf.get(cid, 0)))
         dyn["confidence"] = _clamp(dyn.get("confidence", 5) + dc)
@@ -99,7 +108,9 @@ def update_morale(
         dyn["fatigue"] = _clamp(dyn.get("fatigue", 0) + (1 if (cid in fought or commander_moved) else -1))
 
         dr = max(-REL_CAP, min(REL_CAP, rel.get(cid, 0)))
-        if _signalled_this_turn(state, cid, report.turn):
+        # The warming roll models the player's personal attention, so it applies
+        # only to commanders who can actually receive a SIGNAL from him.
+        if dossier.side == player_side and _signalled_this_turn(state, cid, report.turn):
             chance = _signal_warm_chance(dossier.traits.get("ego", 5))
             roll = _force_roll if _force_roll is not None else rng.random()
             if roll < chance:

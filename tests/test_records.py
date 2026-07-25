@@ -153,6 +153,76 @@ async def test_morale_stays_in_range_even_pushed_to_the_boundaries():
                 assert 0 <= d.dynamic[key] <= 10, (d.id, key, d.dynamic[key])
 
 
+def test_soviet_commanders_feel_their_war_too():
+    # Morale used to be player-side only, so every enemy dossier sat at the
+    # factory 5/0/5 for a whole campaign: they remembered their war (track
+    # records ran for both sides) but never felt it.
+    c = Campaign.new(DATA_DIR)
+    pav = "pavlov"
+    losing = c.state.corps_for(pav)[0]
+    before = c.dossiers[pav].dynamic["confidence"]
+    rep = TurnReport(turn=c.state.turn, movements=[],
+                     combats=[_combat(["xxiv_pz"], losing.location, "defender_retreated",
+                                      defenders=[losing.id])])
+    update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(0))
+    assert c.dossiers[pav].dynamic["confidence"] == before - 2   # position overrun
+    assert c.dossiers[pav].dynamic["fatigue"] == 1               # and he was in it
+
+
+def test_losing_ground_costs_standing_with_high_command():
+    # Only failed ATTACKS moved relationship, so a commander who was purely on
+    # the defensive kept perfect standing however much ground he lost - which
+    # left the Stavka pressure line unreachable for exactly the commanders it
+    # was written for. Holding is the baseline expectation and earns nothing;
+    # losing the position your superior told you to hold is a failure he notices.
+    c = Campaign.new(DATA_DIR)
+    for cmd in ("pavlov", "kluge"):
+        losing = c.state.corps_for(cmd)[0]
+        before = c.dossiers[cmd].dynamic["relationship"]
+        rep = TurnReport(turn=c.state.turn, movements=[],
+                         combats=[_combat(["other"], losing.location, "defender_retreated",
+                                          defenders=[losing.id])])
+        update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(0))
+        assert c.dossiers[cmd].dynamic["relationship"] == before - 1, cmd
+
+
+def test_merely_holding_the_line_earns_no_extra_standing():
+    c = Campaign.new(DATA_DIR)
+    pav = "pavlov"
+    holding = c.state.corps_for(pav)[0]
+    before = c.dossiers[pav].dynamic["relationship"]
+    rep = TurnReport(turn=c.state.turn, movements=[],
+                     combats=[_combat(["other"], holding.location, "defender_held",
+                                      defenders=[holding.id])])
+    update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(0))
+    assert c.dossiers[pav].dynamic["relationship"] == before
+
+
+def test_soviet_standing_with_stavka_falls_when_his_attacks_fail():
+    c = Campaign.new(DATA_DIR)
+    tim = "timoshenko"
+    corps = c.state.corps_for(tim)
+    before = c.dossiers[tim].dynamic["relationship"]
+    rep = TurnReport(turn=c.state.turn, movements=[],
+                     combats=[_combat([corps[0].id], corps[0].location, "defender_held")])
+    update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(0))
+    assert c.dossiers[tim].dynamic["relationship"] == before - 1
+
+
+def test_player_signals_cannot_warm_an_enemy_commander():
+    # The warming roll models the player's attention. He has no channel to the
+    # other side, so a stray conversation entry must never move a Soviet dossier.
+    c = Campaign.new(DATA_DIR)
+    tim = "timoshenko"
+    c.state.conversations.setdefault(tim, []).append(
+        {"turn": c.state.turn, "role": "player", "text": "Well done, Semyon."}
+    )
+    before = c.dossiers[tim].dynamic["relationship"]
+    rep = TurnReport(turn=c.state.turn, combats=[], movements=[])
+    update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(), _force_roll=0.0)
+    assert c.dossiers[tim].dynamic["relationship"] == before
+
+
 def test_signalling_can_warm_relationship_subject_to_the_roll():
     c = Campaign.new(DATA_DIR)
     gud = "guderian"

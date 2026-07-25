@@ -41,6 +41,33 @@ def test_low_relationship_block_signals_insubordination():
     assert "own judgment" in _current_state_block(_dossier(relationship=1)).lower()
 
 
+def _soviet(**dynamic):
+    base = {"confidence": 5, "fatigue": 0, "relationship": 5}
+    base.update(dynamic)
+    return Dossier(id="y", name="Test", role="Test Army", side="soviet",
+                   bio="A soldier.", traits={"ego": 5}, dynamic=base)
+
+
+def test_out_of_favour_soviet_is_pressed_not_emboldened():
+    # Same low number, opposite psychology. A German general out of patience
+    # with headquarters starts freelancing; a Red Army commander out of favour
+    # with Stavka in 1941 gets more compliant, not less - Pavlov was shot that
+    # July. The dial is shared; the meaning is not.
+    block = _current_state_block(_soviet(relationship=1)).lower()
+    assert "stavka" in block
+    assert "own judgment" not in block
+
+
+def test_trusted_soviet_reads_as_standing_with_stavka():
+    assert "stavka" in _current_state_block(_soviet(relationship=9)).lower()
+
+
+def test_confidence_and_fatigue_read_the_same_on_both_sides():
+    for make in (_dossier, _soviet):
+        assert "riding high" in _current_state_block(make(confidence=9)).lower()
+        assert "exhaust" in _current_state_block(make(fatigue=8)).lower()
+
+
 def test_high_confidence_and_exhaustion_show():
     assert "riding high" in _current_state_block(_dossier(confidence=9)).lower()
     assert "exhaust" in _current_state_block(_dossier(fatigue=8)).lower()

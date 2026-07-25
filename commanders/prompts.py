@@ -90,7 +90,19 @@ def _current_state_block(dossier: Dossier) -> str:
         lines.append("Recent reverses have shaken you; you are second-guessing yourself.")
     if fat >= 7:
         lines.append("Your formations are exhausted, stretched past the point of endurance.")
-    if rel >= 8:
+    # Same dial, opposite psychology. A German army commander who has lost
+    # patience with headquarters starts freelancing; a Red Army commander out of
+    # favour with Stavka in 1941 gets more compliant, not less - Pavlov was shot
+    # that July. Low relationship is the insubordination lever on one side and
+    # the desperation lever on the other.
+    if dossier.side == "soviet":
+        if rel >= 8:
+            lines.append("You stand well with Stavka; your judgment is trusted there.")
+        elif rel <= 2:
+            lines.append("Stavka's patience with you is exhausted. Failure now will not be "
+                         "forgiven. You will attack when ordered and report success, "
+                         "whatever it costs.")
+    elif rel >= 8:
         lines.append("You trust the theater commander; his intent and yours run together.")
     elif rel <= 2:
         lines.append("Your patience with headquarters is worn thin; you increasingly act on "
