@@ -117,12 +117,43 @@ def test_defender_with_no_retreat_path_is_destroyed():
     assert s.corps["sv1"].is_destroyed
 
 
+def test_encircled_corps_at_full_strength_is_mauled_not_erased():
+    # A pocket used to kill outright at ANY strength: two full panzer corps at
+    # Yelnya went from untouched to gone in one resolution, with no turn in which
+    # the player could relieve them. A strong formation must survive the first
+    # blow, badly hurt, and only collapse if the ring holds.
+    data = state_data()
+    data["corps"][2].update(location="center", strength=100, organization=100)
+    data["control"] = {"west": "axis", "center": "soviet", "east": "axis", "far_east": "axis"}
+    s = GameState.from_dict(data)
+    attack = orders(CorpsOrder("ax1", "attack", "center"), CorpsOrder("ax2", "attack", "center"))
+
+    resolve_turn(s, attack)
+    assert not s.corps["sv1"].is_destroyed          # survives the first turn
+    assert s.corps["sv1"].strength <= 50            # but is wrecked
+    assert s.corps["sv1"].location == "center"      # nowhere to go: still in the bag
+
+    resolve_turn(s, attack)
+    assert s.corps["sv1"].is_destroyed              # ring held: the pocket is reduced
+
+
 def test_reserve_posture_recovers_organization():
     data = state_data()
     data["corps"][0]["organization"] = 50
     s = GameState.from_dict(data)
     resolve_turn(s, orders(CorpsOrder("ax1", "reserve", None)))
     assert s.corps["ax1"].organization > 50
+
+
+def test_cut_off_corps_cannot_refit_itself():
+    # Recovery is rest AND resupply. A corps with no supply was still rebuilding
+    # organization: in a real game xlvi_pz went org 82 -> 100 at supply 0, inside
+    # a pocket, the turn before it died.
+    data = state_data()
+    data["corps"][0].update(organization=50, supply=0)
+    s = GameState.from_dict(data)
+    resolve_turn(s, orders(CorpsOrder("ax1", "reserve", None)))
+    assert s.corps["ax1"].organization == 50
 
 
 def test_supply_updates_after_movement():

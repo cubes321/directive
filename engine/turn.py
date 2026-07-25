@@ -14,8 +14,11 @@ Key rules:
 - At most STACKING_LIMIT corps per region. Moves that would overfill bounce;
   after a won combat only as many attackers advance as fit; retreats require
   room, and a defender with nowhere to go surrenders (encirclement).
-- A retreating defender loses at most half its current strength; annihilation
-  only happens in an encirclement.
+- A retreating defender loses at most half its current strength. A defender with
+  nowhere to go is encircled and takes POCKET_LOSS instead: a pocket is reduced
+  over turns, so a full-strength formation survives the first blow and the other
+  side has a turn in which to attempt relief.
+- A region only changes hands when no living defender is still standing on it.
 - Combat losses are distributed point by point round-robin so totals are
   conserved (no rounding away in large stacks).
 """
@@ -29,6 +32,7 @@ from engine.combat import power_breakdown, resolve_combat
 from engine.orders import CommanderOrders
 from engine.state import GameState
 from engine.supply import (
+    CONNECTED_FLOOR,
     RAILHEAD_SPEED,
     advance_railhead,
     compute_supply,
@@ -41,6 +45,10 @@ STACKING_LIMIT = 3
 RESERVE_ORG_RECOVERY = 20
 RESERVE_STR_RECOVERY = 5
 REST_ORG_RECOVERY = 10
+# Strength lost by a corps caught in a pocket with no line of retreat. Enough to
+# wreck a full-strength formation and finish an already-spent one, so the ring
+# still kills - but over turns, leaving room for a relief attempt.
+POCKET_LOSS = 50
 
 
 @dataclass
@@ -149,7 +157,12 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
                 before = corps.strength
                 retreat_to = _retreat_region(state, region, corps.side)
                 if retreat_to is None:
-                    corps.take_losses(strength=100, organization=100)  # surrenders
+                    # Encircled. This used to erase the corps outright at any
+                    # strength, so a fresh formation went from untouched to gone
+                    # in one resolution with no turn in which relief was possible.
+                    # Reduce the pocket instead: heavy losses now, collapse later
+                    # if the ring holds.
+                    corps.take_losses(strength=POCKET_LOSS, organization=100)
                 else:
                     share = result.defender_losses // len(defenders)
                     corps.take_losses(
@@ -163,7 +176,12 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
                 defenders, result.defender_losses, result.defender_org_losses
             )
 
-        defenders_gone = result.defender_retreats or all(c.is_destroyed for c in defenders)
+        # Report what actually happened, not what was computed: a defender ordered
+        # to retreat that had nowhere to go and survived is still sitting on the
+        # ground. The region only changes hands once none of them are left on it.
+        defenders_gone = not [
+            c for c in defenders if not c.is_destroyed and c.location == region
+        ]
         if defenders_gone:
             for corps in attackers:
                 if not corps.is_destroyed and friendly_count(region, corps.side) < STACKING_LIMIT:
@@ -192,6 +210,8 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
     for corps in state.living_corps():
         if corps.id in fought or corps.id in moved:
             continue
+        if corps.supply < CONNECTED_FLOOR:
+            continue  # refitting takes stores, not just rest: a cut-off corps rots
         if postures.get(corps.id) == "reserve":
             corps.recover(organization=RESERVE_ORG_RECOVERY, strength=RESERVE_STR_RECOVERY)
         else:

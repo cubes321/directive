@@ -16,14 +16,26 @@ KIND_MULTIPLIER = {"panzer": 1.5, "motorized": 1.2, "infantry": 1.0}
 TERRAIN_DEFENSE = {"urban": 1.5, "forest": 1.3, "marsh": 1.4, "river_line": 1.4, "clear": 1.0}
 RETREAT_THRESHOLD = 1.3
 BASE_LOSS = 8
+# Even a walkover costs the attacker something. Without this, lopsided odds put
+# BASE_LOSS / effective below 0.5 and it rounded away to a free kill.
+MIN_ATTACKER_LOSS = 1
 # A corps out of supply is nearly combat-ineffective (was 0.30, which created a
 # dead zone where supply 0 and 20 fought identically and let outrun spearheads
 # win anyway). Lower floor = deep shortfalls bite; full supply is unaffected.
 SUPPLY_FLOOR = 0.10
+# Same reasoning for organization: a shattered corps is a poor obstacle, not a
+# hole in the line. Without a floor, org 0 gave power exactly 0, the defence
+# fell through to the max(defense, 1.0) guard, and "odds" became the attacker's
+# raw power - 598:1 in one logged battle, with zero attacker losses.
+ORG_FLOOR = 0.15
 
 
 def _supply_factor(corps: Corps) -> float:
     return max(SUPPLY_FLOOR, corps.supply / 100)
+
+
+def _org_factor(corps: Corps) -> float:
+    return max(ORG_FLOOR, corps.organization / 100)
 
 
 def _kind_multiplier(corps: Corps) -> float:
@@ -49,7 +61,7 @@ class CombatResult:
 def combat_power(corps: Corps) -> float:
     return (
         corps.strength
-        * (corps.organization / 100)
+        * _org_factor(corps)
         * _kind_multiplier(corps)
         * _supply_factor(corps)
         * _experience_factor(corps)
@@ -70,6 +82,7 @@ def power_breakdown(corps: Corps) -> dict:
         "supply": corps.supply,
         "kind_multiplier": round(_kind_multiplier(corps), 3),
         "supply_factor": round(_supply_factor(corps), 3),
+        "org_factor": round(_org_factor(corps), 3),
         "experience_factor": round(_experience_factor(corps), 3),
         "power": round(combat_power(corps), 1),
     }
@@ -91,7 +104,7 @@ def resolve_combat(
     odds = attack / max(defense, 1.0)
     effective = odds * rng.uniform(0.8, 1.2)
 
-    attacker_losses = min(100, round(BASE_LOSS / max(effective, 0.4)))
+    attacker_losses = min(100, max(MIN_ATTACKER_LOSS, round(BASE_LOSS / max(effective, 0.4))))
     defender_losses = min(100, round(BASE_LOSS * effective))
     return CombatResult(
         odds=odds,

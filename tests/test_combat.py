@@ -56,6 +56,26 @@ def test_massed_panzers_no_longer_auto_win_when_outrun():
     assert resolve_combat(supplied, defender, terrain="clear", rng=rng()).odds > RETREAT_THRESHOLD
 
 
+def test_shattered_corps_still_offers_some_resistance():
+    # Organization used to multiply straight through, so org 0 meant power
+    # EXACTLY 0: the defence collapsed to the max(defense, 1.0) guard and odds
+    # became the attacker's raw power (a real game logged 598:1, zero attacker
+    # losses). Broken men still shoot; give organization the same floor supply has.
+    assert combat_power(make_corps(organization=0)) > 0
+    assert combat_power(make_corps(organization=0)) < combat_power(make_corps(organization=50))
+
+
+def test_odds_against_a_broken_defender_are_a_real_ratio():
+    attackers = [make_corps(id=f"a{i}", kind="panzer") for i in range(4)]
+    broken = [make_corps(id="d1", side="soviet", strength=30, organization=0)]
+    result = resolve_combat(attackers, broken, terrain="clear", rng=rng())
+    assert result.defender_retreats          # still a rout, as it should be
+    # When the defence collapsed to zero, odds became the attacker's raw power
+    # divided by the max(defense, 1.0) guard. A real ratio must be smaller.
+    assert result.odds < sum(combat_power(a) for a in attackers)
+    assert result.attacker_losses > 0        # and no assault is ever entirely free
+
+
 def test_overwhelming_attack_forces_retreat():
     attackers = [make_corps(id=f"a{i}", kind="panzer") for i in range(3)]
     defenders = [make_corps(id="d1", side="soviet", strength=40, organization=40)]
