@@ -58,6 +58,27 @@ def _contact_line(state: GameState, region_id: str, reports: list[dict]) -> str:
     return f"- {_region_label(state, region_id)}: {units}"
 
 
+def _closing_move(state: GameState, corps, in_range: dict[str, int]) -> str | None:
+    """The reachable friendly region that gets this corps closest to the enemy.
+
+    Without this, a corps whose every reachable region is already ours drew no
+    move option at all - its staff could only say "hold current position", and
+    it did, for turns on end. The bias got worse the more ground you took.
+    """
+    enemy_held = [r for r, side in state.control.items() if side != corps.side]
+    if not enemy_held:
+        return None
+    to_front = state.game_map.distances_from(enemy_held)
+    here = to_front.get(corps.location)
+    if here is None:
+        return None
+    closer = [
+        r for r in sorted(in_range)
+        if to_front.get(r, here) < here and not _is_full(state, r, corps.side)
+    ]
+    return min(closer, key=lambda r: (to_front[r], r)) if closer else None
+
+
 def _staff_options(state: GameState, corps, contacts: dict[str, list[dict]]) -> list[str]:
     options: list[str] = []
     enemy_held = {r for r, side in state.control.items() if side != corps.side}
@@ -77,6 +98,12 @@ def _staff_options(state: GameState, corps, contacts: dict[str, list[dict]]) -> 
             )
         elif region_id in enemy_held:
             options.append(f"advance to {_region_label(state, region_id)} (no known enemy)")
+    if not options:
+        closing = _closing_move(state, corps, in_range)
+        if closing:
+            options.append(
+                f"close up toward the front at {_region_label(state, closing)}"
+            )
     if corps.supply < 70 or corps.organization < 70:
         options.append("hold in reserve to recover organization and supply")
     else:

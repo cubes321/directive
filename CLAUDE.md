@@ -32,7 +32,19 @@ outside (e.g. telemetry), the engine *builds the data* and a caller *writes it*
   on order** — sort first. (A set-iteration bug made railheads vary across
   `PYTHONHASHSEED`; there's a cross-hash-seed regression test in `test_supply.py`.)
 - **Report what actually happened, not what was requested.** Combat reports the
-  losses *applied*, not the losses computed (`engine/turn.py:_distribute_losses`).
+  losses *applied*, not the losses computed (`engine/turn.py:_distribute_losses`);
+  a region changes hands only when no living defender is still standing on it,
+  not because a retreat was *ordered*.
+- **Every multiplicative factor gets a floor.** `combat_power` multiplies supply,
+  organization and experience together, so any one of them reaching zero zeroes
+  the unit — the defence then falls through to `max(defense, 1.0)` and "odds"
+  becomes the attacker's raw power (598:1 was logged). `SUPPLY_FLOOR`/`ORG_FLOOR`
+  exist for that; give any new factor the same treatment.
+- **No staff option should be a dead end.** `_staff_options` once proposed moves
+  only into *enemy-held* ground, so a corps in a quiet rear area was told
+  "hold current position" and nothing else — and cautious commanders sat there
+  for turns. Rejections must name the legal alternatives too
+  (`engine/orders.py`), or the repair round-trip degrades an advance into a halt.
 - **Single source of truth for derived formulas.** `combat_power` and
   `power_breakdown` share private helpers so telemetry can't drift from combat.
 - **Surface config errors loudly; degrade only transient ones.** A backend 4xx

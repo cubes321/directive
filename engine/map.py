@@ -6,6 +6,8 @@ Regions are nodes keyed by id; edges carry road quality ("highway", "minor",
 
 from __future__ import annotations
 
+from collections import deque
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 
@@ -56,6 +58,21 @@ class GameMap:
 
     def neighbors(self, region_id: str) -> list[str]:
         return self._adjacency[region_id]
+
+    def distances_from(self, sources: Iterable[str]) -> dict[str, int]:
+        """Hop distance from the nearest of ``sources`` to every region it can
+        reach. Ignores movement cost and control - this is raw graph geometry,
+        used to ask "which way is the front from here?".
+        """
+        distance = {s: 0 for s in sorted(set(sources)) if s in self.regions}
+        queue = deque(sorted(distance))
+        while queue:
+            here = queue.popleft()
+            for nxt in sorted(self.neighbors(here)):
+                if nxt not in distance:
+                    distance[nxt] = distance[here] + 1
+                    queue.append(nxt)
+        return distance
 
     def edge(self, a: str, b: str) -> Edge:
         return self._edges[frozenset((a, b))]

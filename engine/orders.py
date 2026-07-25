@@ -81,9 +81,18 @@ def _order_errors(
             game_map, corps.location, movement_points(corps, weather), blocked=enemy_held
         )
         if order.objective != corps.location and order.objective not in in_range:
+            # Name the legal destinations. Stating only the rejection reads as
+            # "you cannot move", and a cautious commander answers the repair
+            # prompt by dropping the advance instead of taking an intermediate
+            # bound - observed in play, for four turns running.
+            options = (
+                "reachable this turn: " + ", ".join(sorted(in_range))
+                if in_range
+                else "nothing is in reach this turn; hold instead"
+            )
             return [
                 f"{order.corps_id}: objective '{order.objective}' is out of reach "
-                f"this turn from {corps.location}"
+                f"this turn from {corps.location} ({options})"
             ]
     return []
 

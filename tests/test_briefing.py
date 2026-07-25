@@ -43,6 +43,44 @@ def test_briefing_marks_full_regions_in_range():
     assert "Spur [id: spur] (FULL" not in in_range  # empty -> not marked
 
 
+def _rear_area_state():
+    # rear -- mid -- far -- front, all highway (cost 2). An infantry corps in the
+    # rear has 4 MP, so mid and far are in range but the front is not. Everything
+    # it can reach is already friendly ground.
+    return GameState.from_dict({
+        "map": {
+            "regions": [{"id": r, "name": r.title(), "terrain": "clear"}
+                        for r in ["rear", "mid", "far", "front"]],
+            "edges": [
+                {"between": ["rear", "mid"], "road": "highway", "rail": True},
+                {"between": ["mid", "far"], "road": "highway", "rail": True},
+                {"between": ["far", "front"], "road": "highway", "rail": True},
+            ],
+        },
+        "corps": [
+            {"id": "r1", "name": "R1", "side": "axis", "kind": "infantry",
+             "location": "rear", "commander": "strauss"},
+            {"id": "s1", "name": "S1", "side": "soviet", "kind": "infantry",
+             "location": "front", "commander": "pavlov"},
+        ],
+        "control": {"rear": "axis", "mid": "axis", "far": "axis", "front": "soviet"},
+        "supply_sources": {"axis": ["rear"], "soviet": ["front"]},
+        "turn": 1, "seed": 1,
+    })
+
+
+def test_staff_suggests_closing_up_when_no_enemy_is_in_range():
+    # A move option was only ever generated for enemy-held ground, so a corps
+    # sitting behind the front got "hold current position" as its ONLY staff
+    # option - and cautious commanders duly sat there for turns on end.
+    text = build_briefing(_rear_area_state(), "strauss")
+    options = [ln for ln in text.splitlines() if ln.strip().startswith("*")]
+    assert any("far" in ln for ln in options), f"no forward option offered: {options}"
+    # and it must point at the region nearer the front, not the one behind it
+    forward = next(ln for ln in options if "far" in ln or "mid" in ln)
+    assert "mid" not in forward
+
+
 def briefing_for_guderian():
     state = load_scenario(DATA_DIR)
     state.directives["guderian"] = "Drive on Minsk. Do not outrun your supply."

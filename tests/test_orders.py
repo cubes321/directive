@@ -113,6 +113,21 @@ def test_unreachable_objective_is_an_error():
     assert any("vyazma" in e for e in errors)
 
 
+def test_out_of_reach_error_names_the_reachable_regions():
+    # The rejection used to say only what was illegal. Quoted back to a cautious
+    # commander that reads as "you cannot move", and he drops the advance
+    # entirely instead of taking the intermediate bound - which is exactly what
+    # Strauss did for four turns. Tell him where he CAN go.
+    game_map, corps, control = setup()
+    orders = CommanderOrders(
+        commander="guderian",
+        orders=[CorpsOrder(corps_id="xxiv_pz", posture="advance", objective="vyazma")],
+        dispatch="",
+    )
+    error = next(e for e in validate_orders(orders, game_map, corps, control) if "vyazma" in e)
+    assert "minsk" in error   # xxiv_pz sits at brest; minsk is one highway hop
+
+
 def test_attack_requires_objective():
     game_map, corps, control = setup()
     orders = CommanderOrders(
