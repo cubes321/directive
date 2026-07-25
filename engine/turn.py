@@ -15,9 +15,9 @@ Key rules:
   after a won combat only as many attackers advance as fit; retreats require
   room, and a defender with nowhere to go surrenders (encirclement).
 - A retreating defender loses at most half its current strength. A defender with
-  nowhere to go is encircled and takes POCKET_LOSS instead: a pocket is reduced
-  over turns, so a full-strength formation survives the first blow and the other
-  side has a turn in which to attempt relief.
+  nowhere to go is encircled and takes POCKET_LOSS instead, so a full-strength
+  formation needs three assaults to reduce and the other side has turns in which
+  to attempt relief. Containing a pocket without assaulting it costs it nothing.
 - A region only changes hands when no living defender is still standing on it.
 - Combat losses are distributed point by point round-robin so totals are
   conserved (no rounding away in large stacks).
@@ -45,10 +45,13 @@ STACKING_LIMIT = 3
 RESERVE_ORG_RECOVERY = 20
 RESERVE_STR_RECOVERY = 5
 REST_ORG_RECOVERY = 10
-# Strength lost by a corps caught in a pocket with no line of retreat. Enough to
-# wreck a full-strength formation and finish an already-spent one, so the ring
-# still kills - but over turns, leaving room for a relief attempt.
-POCKET_LOSS = 50
+# Strength lost per assault by a corps caught in a pocket with no line of
+# retreat. Sized so a full-strength formation takes three assaults to reduce -
+# roughly the ten days Bialystok-Minsk held out - while an already-spent one
+# collapses at the first push. A pocket that is merely contained and never
+# assaulted takes nothing: masking a Kessel costs the encircling side time,
+# which is the historical trade.
+POCKET_LOSS = 34
 
 
 @dataclass

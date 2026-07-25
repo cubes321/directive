@@ -128,13 +128,29 @@ def test_encircled_corps_at_full_strength_is_mauled_not_erased():
     s = GameState.from_dict(data)
     attack = orders(CorpsOrder("ax1", "attack", "center"), CorpsOrder("ax2", "attack", "center"))
 
-    resolve_turn(s, attack)
-    assert not s.corps["sv1"].is_destroyed          # survives the first turn
-    assert s.corps["sv1"].strength <= 50            # but is wrecked
-    assert s.corps["sv1"].location == "center"      # nowhere to go: still in the bag
+    for assault in (1, 2):
+        resolve_turn(s, attack)
+        assert not s.corps["sv1"].is_destroyed, f"collapsed on assault {assault}"
+        assert s.corps["sv1"].strength < 100         # but bleeding every time
+        assert s.corps["sv1"].location == "center"   # nowhere to go: still in the bag
+        assert s.control["center"] == "soviet"       # and the ground is still theirs
 
     resolve_turn(s, attack)
-    assert s.corps["sv1"].is_destroyed              # ring held: the pocket is reduced
+    assert s.corps["sv1"].is_destroyed               # third assault reduces the pocket
+
+
+def test_contained_pocket_is_not_destroyed_by_containment_alone():
+    # Historically a Kessel that was merely masked held out for weeks. Losses
+    # come from assaulting it, so a turn without an attack costs the pocket
+    # nothing - the encircling side pays in time instead.
+    data = state_data()
+    data["corps"][2].update(location="center", strength=100, organization=100)
+    data["control"] = {"west": "axis", "center": "soviet", "east": "axis", "far_east": "axis"}
+    s = GameState.from_dict(data)
+    for _ in range(5):
+        resolve_turn(s, orders(CorpsOrder("ax1", "defend", None)))
+    assert not s.corps["sv1"].is_destroyed
+    assert s.corps["sv1"].strength == 100
 
 
 def test_reserve_posture_recovers_organization():
