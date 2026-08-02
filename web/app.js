@@ -533,15 +533,18 @@ function renderOob() {
     const tbody = document.createElement("tbody");
     for (const c of corps) {
       const tr = document.createElement("tr");
+      const worn = Number(c.max_strength ?? 100) < 100;
       const cells = [
         `${c.name}${c.kind === "panzer" ? " ⛭" : ""}`,
         regionName[c.location] || c.location,
-        c.strength, c.organization, c.supply,
+        worn ? `${c.strength}/${c.max_strength}` : c.strength,
+        c.organization, c.supply,
       ];
+      const numeric = [null, null, c.strength, c.organization, c.supply];
       cells.forEach((v, i) => {
         const td = document.createElement("td");
         td.textContent = v;
-        if (i >= 2 && Number(v) < 40) td.className = "low";
+        if (i >= 2 && Number(numeric[i]) < 40) td.className = "low";
         tr.appendChild(td);
       });
       tr.addEventListener("mouseenter", () => {

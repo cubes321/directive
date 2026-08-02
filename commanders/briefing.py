@@ -43,10 +43,13 @@ def _corps_status(state: GameState, corps) -> str:
         notes.append("supply strained")
     if corps.organization < 50:
         notes.append("badly disorganized")
+    if corps.max_strength < 100:
+        notes.append(f"cadre worn: can never be rebuilt past {corps.max_strength}")
     note = f" ({', '.join(notes)})" if notes else ""
     return (
         f"- {corps.name} [{corps.id}], {corps.kind}, at {_region_label(state, corps.location)}: "
-        f"strength {corps.strength}/100, organization {corps.organization}/100, "
+        f"strength {corps.strength}/{corps.max_strength}, "
+        f"organization {corps.organization}/100, "
         f"supply {corps.supply}/100{note}"
     )
 
