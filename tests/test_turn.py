@@ -369,6 +369,21 @@ def test_bounced_corps_pays_no_wastage():
     assert s.corps["ax1"].strength == before
 
 
+def test_the_moscow_clock_counts_up_and_resets_when_it_is_lost():
+    data = state_data()
+    data["map"]["regions"].append({"id": "moscow", "name": "Moscow", "terrain": "urban"})
+    data["map"]["edges"].append({"between": ["far_east", "moscow"],
+                                 "road": "highway", "rail": True})
+    data["control"]["moscow"] = "axis"
+    s = GameState.from_dict(data)
+    resolve_turn(s, {})
+    resolve_turn(s, {})
+    assert s.moscow_held_turns == 2
+    s.control["moscow"] = "soviet"
+    resolve_turn(s, {})
+    assert s.moscow_held_turns == 0
+
+
 def test_newly_arrived_reinforcement_pays_no_wastage():
     # Regression: a reinforcement spawning this turn has not marched anywhere
     # and must not be charged, no matter what supply value it spawns with.

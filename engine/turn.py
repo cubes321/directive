@@ -290,6 +290,12 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         ).items():
             state.corps[cid].supply = value
 
+    # 5. The Moscow clock. A capital only counts when you can keep it.
+    if state.control.get("moscow") == "axis":
+        state.moscow_held_turns += 1
+    else:
+        state.moscow_held_turns = 0
+
     state.turn += 1
     return report
 
