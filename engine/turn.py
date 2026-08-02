@@ -103,6 +103,16 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
     state.weather = weather_for_turn(state.turn)
     rng = random.Random(state.seed * 1000 + state.turn)
 
+    # Snapshot every corps' location before anything moves - including before
+    # reinforcements spawn, so a corps arriving this turn is simply absent
+    # from the snapshot rather than compared against its own arrival point.
+    # Wastage is charged at step 3b to any living corps whose location has
+    # since diverged from this snapshot, however it moved: uncontested march,
+    # combat advance, or retreat. A corps missing from the snapshot (just
+    # arrived) or whose location is unchanged (stayed put, or bounced) pays
+    # nothing.
+    locations_before_turn = {cid: c.location for cid, c in state.corps.items()}
+
     _arrive_reinforcements(state, report)
 
     postures: dict[str, str] = {}
@@ -245,16 +255,20 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         else:
             corps.recover(organization=REST_ORG_RECOVERY)
 
-    # 3b. Marching wastage. Reinforcements that just arrived have not marched,
-    # and a bounced corps went nowhere, so neither pays.
+    # 3b. Marching wastage. Charge every living corps whose location actually
+    # changed this turn - uncontested moves, combat advances, and retreats
+    # alike - against the snapshot taken before the turn began. A corps
+    # absent from the snapshot just arrived and pays nothing; one whose
+    # location is unchanged (stood still, or bounced off a full region) pays
+    # nothing either.
     marched = {
-        m["corps"] for m in report.movements
-        if not m.get("bounced") and not m.get("arrived")
+        cid for cid, corps in state.corps.items()
+        if not corps.is_destroyed
+        and cid in locations_before_turn
+        and corps.location != locations_before_turn[cid]
     }
     for corps_id in sorted(marched):
-        corps = state.corps.get(corps_id)
-        if corps is None or corps.is_destroyed:
-            continue
+        corps = state.corps[corps_id]
         loss = march_wastage(corps, state.weather)
         if loss:
             corps.take_losses(strength=loss, organization=loss * 2)

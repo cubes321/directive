@@ -305,3 +305,79 @@ def test_a_corps_that_stayed_put_does_not_waste_away():
     before = s.corps["ax1"].strength
     resolve_turn(s, orders(CorpsOrder("ax1", "defend", None)))
     assert s.corps["ax1"].strength == before
+
+
+def test_advancing_after_winning_combat_pays_wastage():
+    # Location changes here via the "defenders_gone" advance inside the combat
+    # branch, never through report.movements - the set that used to be charged
+    # for wastage never saw this corps at all.
+    from engine.turn import march_wastage
+
+    data = state_data()
+    data["corps"][0]["supply"] = 20  # attacker outrunning its railhead
+    data["corps"][2].update(strength=10, organization=10, location="center")
+    s = GameState.from_dict(data)
+    before = s.corps["ax1"].strength
+    report = resolve_turn(s, orders(CorpsOrder("ax1", "attack", "center")))
+
+    combat = report.combats[0]
+    assert combat["outcome"] != "defender_held"  # the weak defender broke
+    assert s.corps["ax1"].location == "center"  # attacker advanced
+
+    expected_wastage = march_wastage(_corps("x", supply=20), "clear")
+    assert expected_wastage > 0
+    assert before - s.corps["ax1"].strength == combat["attacker_losses"] + expected_wastage
+
+
+def test_retreating_from_lost_combat_pays_wastage():
+    # Location changes via the retreat branch, also never recorded in
+    # report.movements.
+    from engine.turn import march_wastage
+
+    data = state_data()
+    data["corps"][2].update(location="center", supply=20)  # weak, starved defender
+    s = GameState.from_dict(data)
+    before = s.corps["sv1"].strength
+    report = resolve_turn(s, orders(
+        CorpsOrder("ax1", "attack", "center"),
+        CorpsOrder("ax2", "attack", "center"),
+    ))
+
+    combat = report.combats[0]
+    assert combat["outcome"] == "defender_retreated"
+    assert s.corps["sv1"].location == "east"  # retreated, did not vanish
+
+    expected_wastage = march_wastage(_corps("x", supply=20), "clear")
+    assert expected_wastage > 0
+    assert before - s.corps["sv1"].strength == combat["defender_losses"] + expected_wastage
+
+
+def test_bounced_corps_pays_no_wastage():
+    # Regression: a corps that failed to squeeze into a full region never
+    # actually moved, so it must not be charged even if it is starving.
+    data = state_data()
+    data["corps"] += [
+        {"id": f"ax{i}", "name": f"Ax{i}", "side": "axis", "kind": "infantry",
+         "location": "center", "commander": "kluge"} for i in (3, 4, 5)
+    ]
+    data["control"]["center"] = "axis"
+    data["corps"][0]["supply"] = 0
+    s = GameState.from_dict(data)
+    before = s.corps["ax1"].strength
+    resolve_turn(s, orders(CorpsOrder("ax1", "advance", "center")))
+    assert s.corps["ax1"].location == "west"  # bounced
+    assert s.corps["ax1"].strength == before
+
+
+def test_newly_arrived_reinforcement_pays_no_wastage():
+    # Regression: a reinforcement spawning this turn has not marched anywhere
+    # and must not be charged, no matter what supply value it spawns with.
+    data = state_data()
+    data["reinforcements"] = [{
+        "turn": 1,
+        "corps": {"id": "ax9", "name": "Ax9", "side": "axis", "kind": "infantry",
+                  "location": "west", "commander": "kluge", "supply": 0},
+    }]
+    s = GameState.from_dict(data)
+    resolve_turn(s, {})
+    assert s.corps["ax9"].strength == 100
