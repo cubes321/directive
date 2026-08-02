@@ -93,8 +93,52 @@ def test_pending_diversion_auto_declines_past_deadline():
 
 
 def test_closed_objectives_are_not_reprocessed():
-    s = make_state(turn=6, objectives=[capture_obj(status="met")])
+    s = make_state(turn=6, objectives=[capture_obj(status="met")],
+                   control={"minsk": "axis", "smolensk": "soviet", "gomel": "soviet"})
     assert advance_objectives(s, player_side="axis") == []
+
+
+def test_met_objective_reopens_if_the_target_is_lost_before_the_deadline():
+    # "met" used to latch on first capture, so the panel read ACHIEVED while the
+    # place sat in enemy hands behind the front - which hid a real crisis.
+    s = make_state(turn=3, objectives=[capture_obj(status="met")])  # minsk soviet again
+    events = advance_objectives(s, player_side="axis")
+    assert s.objectives[0]["status"] == "active"
+    reopened = next(e for e in events if e["type"] == "reopened")
+    assert reopened["capital_delta"] == -3   # the reward is handed back
+
+
+def test_a_reopened_objective_can_be_met_again():
+    s = make_state(turn=3, objectives=[capture_obj(status="met")])
+    advance_objectives(s, player_side="axis")
+    s.control["minsk"] = "axis"
+    events = advance_objectives(s, player_side="axis")
+    assert s.objectives[0]["status"] == "met"
+    assert next(e for e in events if e["type"] == "met")["capital_delta"] == 3
+
+
+def test_met_diversion_reopens_as_accepted_not_active():
+    s = make_state(turn=4, objectives=[divert_obj(status="met")])  # gomel soviet
+    advance_objectives(s, player_side="axis")
+    assert s.objectives[0]["status"] == "accepted"
+
+
+def test_an_objective_held_to_its_deadline_is_banked_for_good():
+    # deadline 4, now turn 5: you delivered on time. Losing it later is a
+    # different problem and must not claw back standing you earned.
+    s = make_state(turn=5, objectives=[capture_obj(status="met")])
+    events = advance_objectives(s, player_side="axis")
+    assert s.objectives[0]["status"] == "met"
+    assert not [e for e in events if e["capital_delta"]]
+
+
+def test_losing_a_banked_objective_warns_once():
+    s = make_state(turn=5, objectives=[capture_obj(status="met")])
+    events = advance_objectives(s, player_side="axis")
+    warning = next(e for e in events if e["type"] == "lost")
+    assert warning["capital_delta"] == 0     # a signal, not a punishment
+    assert "Minsk" in warning["text"]
+    assert advance_objectives(s, player_side="axis") == []  # and never nags again
 
 
 def test_capture_met_takes_priority_even_at_deadline():

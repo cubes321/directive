@@ -9,8 +9,15 @@ turns ``capital_delta`` into standing changes and OKH dispatches.
 Objective lifecycle:
     scheduled --(issued_turn reached)--> active (capture) or pending (divert)
     active/accepted --(target taken)--> met
+    met --(target lost, still inside the deadline)--> active/accepted, reward returned
     active/accepted --(deadline passed)--> failed
     pending --(deadline passed undecided)--> auto_declined
+
+``met`` is only final once the deadline has passed with the target still held:
+holding it *at the deadline* is what OKH asked for. Before then it is provisional,
+so an objective cannot be banked by touching the place for one week. Losing a
+target you did deliver on time is reported once, without cost - by then it is a
+supply problem, not a broken promise.
 
 The player's decision on a diversion (pending -> accepted | declined) is applied
 by the campaign, not here.
@@ -20,7 +27,7 @@ from __future__ import annotations
 
 from engine.state import GameState
 
-CLOSED = {"met", "failed", "declined", "auto_declined"}
+CLOSED = {"failed", "declined", "auto_declined"}
 
 
 def _issue_text(obj: dict) -> str:
@@ -52,6 +59,29 @@ def advance_objectives(state: GameState, player_side: str) -> list[dict]:
     events = issue_due_objectives(state)
     for obj in state.objectives:
         if obj["status"] in CLOSED:
+            continue
+
+        if obj["status"] == "met":
+            held = state.control.get(obj["target"]) == player_side
+            if held:
+                continue
+            if state.turn <= obj["deadline_turn"]:
+                # provisional: you have not delivered until the deadline
+                obj["status"] = "accepted" if obj["kind"] == "divert" else "active"
+                events.append({
+                    "id": obj["id"], "type": "reopened", "capital_delta": -obj["reward"],
+                    "text": f"{obj['title']} — the objective has been lost again. OKH "
+                            f"withdraws its approval (-{obj['reward']} standing).",
+                })
+            elif not obj.get("loss_reported"):
+                obj["loss_reported"] = True
+                events.append({
+                    "id": obj["id"], "type": "lost", "capital_delta": 0,
+                    "text": f"OKH notes with concern that "
+                            f"{state.game_map.regions[obj['target']].name} has been lost "
+                            f"after being secured. The objective stands achieved, but "
+                            f"your rear is no longer your own.",
+                })
             continue
 
         # resolve live objectives
