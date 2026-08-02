@@ -11,3 +11,8 @@ server/saves/
 logs/
 .env
 config.toml
+
+# scratch review artifacts produced outside the repo (external audits, design
+# reviews); the specs and plans we keep live under docs/superpowers/
+bug report*.txt
+docs/design-review-*.md
