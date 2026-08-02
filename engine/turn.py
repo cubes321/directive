@@ -3,9 +3,11 @@
 Order of operations each turn:
   1. Uncontested moves (both sides, deterministic corps-id order)
   2. Combats, grouped by target region
-  3. Organization recovery for resting corps
+  3. Recovery for corps that neither moved nor fought
+  3b. Marching wastage for every corps whose location changed
   4. Supply tick
-  5. Turn counter
+  5. The Moscow clock
+  6. Turn counter
 
 Simultaneity is approximated: moves into regions without living enemy corps
 happen first; everything else is a combat.
@@ -38,7 +40,7 @@ from engine.supply import (
     compute_supply,
     default_railhead_on_load,
 )
-from engine.units import Corps
+from engine.units import DESTROYED_THRESHOLD, Corps
 from engine.weather import weather_for_turn
 
 STACKING_LIMIT = 3
@@ -272,8 +274,13 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
     }
     for corps_id in sorted(marched):
         corps = state.corps[corps_id]
-        loss = march_wastage(corps, state.weather)
-        if loss:
+        # Floored so wastage can never deliver the killing blow: step 2 already
+        # wrote a combat report (outcome, encircled, defender_losses) assuming
+        # this corps survived, and five downstream readers (the battle report,
+        # _staff_facts, update_track_records, update_morale, the communiqué
+        # trigger) trust that story. Wastage wears an army out, never finishes it.
+        loss = min(march_wastage(corps, state.weather), corps.strength - DESTROYED_THRESHOLD)
+        if loss > 0:
             corps.take_losses(strength=loss, organization=loss * 2)
 
     # 4. Supply tick, per side: advance the railhead, then trace supply over it

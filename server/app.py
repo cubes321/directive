@@ -148,7 +148,8 @@ def snapshot(session: Session) -> dict:
         for e in state.map_data["edges"]
     ]
     own_corps = [
-        c.to_dict() for c in state.corps.values() if c.side == side and not c.is_destroyed
+        {**c.to_dict(), "max_strength": c.max_strength}
+        for c in state.corps.values() if c.side == side and not c.is_destroyed
     ]
     player_commanders = []
     for cid in campaign.active_commanders(side):

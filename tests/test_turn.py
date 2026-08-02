@@ -352,6 +352,21 @@ def test_retreating_from_lost_combat_pays_wastage():
     assert before - s.corps["sv1"].strength == combat["defender_losses"] + expected_wastage
 
 
+def test_wastage_never_delivers_the_killing_blow():
+    # The retreat cap guarantees a combat survivor; step 3b marching wastage
+    # must not then finish off a corps combat already reported as surviving -
+    # or the written report (outcome, encircled, defender_losses) lies.
+    from engine.units import DESTROYED_THRESHOLD
+    data = state_data()
+    data["turn"] = 22  # snow: worst-case wastage multiplier
+    data["corps"][0].update(strength=DESTROYED_THRESHOLD + 3, supply=0)
+    data["control"]["center"] = "axis"  # empty friendly ground: uncontested move
+    s = GameState.from_dict(data)
+    resolve_turn(s, orders(CorpsOrder("ax1", "advance", "center")))
+    assert not s.corps["ax1"].is_destroyed
+    assert s.corps["ax1"].strength == DESTROYED_THRESHOLD
+
+
 def test_bounced_corps_pays_no_wastage():
     # Regression: a corps that failed to squeeze into a full region never
     # actually moved, so it must not be charged even if it is starving.

@@ -7,7 +7,7 @@ set by the supply system each turn.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass
 
 DESTROYED_THRESHOLD = 5
 # A formation ground down can be rebuilt, but never to what it was: some of
@@ -52,11 +52,8 @@ class Corps:
         self.strength = min(self.max_strength, self.strength + strength)
 
     def to_dict(self) -> dict:
-        data = asdict(self)
-        data["max_strength"] = self.max_strength  # derived: for the UI and telemetry
-        return data
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict) -> Corps:
-        known = {f.name for f in fields(cls)}
-        return cls(**{k: v for k, v in data.items() if k in known})
+        return cls(**data)

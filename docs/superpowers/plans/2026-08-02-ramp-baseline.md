@@ -121,8 +121,10 @@ organisation per turn. Over six turns of marching: 100 → 82 strength, 80 → 4
 organisation. The organisation hit is the sharper one (it halves combat power),
 which is the right shape — an outrun corps should stop being *useful* well
 before it stops existing. Halt it, restore supply and rest it in reserve, and it
-climbs back to its ceiling of 96 in eight turns. Pull back and recover, at a
-cost: confirmed.
+climbs back to its ceiling of 96 in three turns (`RESERVE_STR_RECOVERY = 5`
+carries 82 to 96; `RESERVE_ORG_RECOVERY = 20` carries 44 to 100 in the same
+three). Pull back and recover, at a cost: confirmed — and the recovery is fast
+enough that halting is a real option rather than a death sentence.
 
 The wastage table in full (strength lost per marching turn):
 

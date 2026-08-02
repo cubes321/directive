@@ -1,3 +1,5 @@
+import pytest
+
 from engine.units import Corps
 
 
@@ -111,3 +113,20 @@ def test_a_save_predating_the_cadre_system_still_loads():
            "organization": 80, "supply": 90, "experience": 50}
     c = Corps.from_dict(old)
     assert c.damage_taken == 0 and c.max_strength == 100
+
+
+def test_to_dict_is_faithful_serialization_not_derived_data():
+    # max_strength is derived from damage_taken; injecting it into to_dict
+    # forced from_dict to filter unknown keys, which meant a typo in scenario
+    # data (e.g. "strenght") was silently absorbed instead of raising.
+    c = make_corps()
+    assert "max_strength" not in c.to_dict()
+
+
+def test_from_dict_raises_on_unknown_key():
+    # A typo in data/oob_1941.json must surface loudly, not be swallowed into
+    # a full-strength corps.
+    bad = {"id": "c", "name": "C", "side": "axis", "kind": "infantry",
+           "location": "x", "commander": "cmd", "strenght": 40}
+    with pytest.raises(TypeError):
+        Corps.from_dict(bad)
