@@ -2,7 +2,7 @@ from engine.state import GameState
 from engine.victory import FINAL_TURN, check_victory
 
 
-def make_state(turn=1, moscow="soviet", axis_vp=5):
+def make_state(turn=1, moscow="soviet", axis_vp=5, moscow_held=0):
     # minimal synthetic state: moscow + filler VP regions
     regions = [
         {"id": "moscow", "name": "Moscow", "terrain": "urban", "victory_points": 25},
@@ -22,6 +22,7 @@ def make_state(turn=1, moscow="soviet", axis_vp=5):
         "supply_sources": {"axis": ["a"], "soviet": ["moscow"]},
         "turn": turn,
         "seed": 1,
+        "moscow_held_turns": moscow_held,
     }
     return GameState.from_dict(data)
 
@@ -30,8 +31,19 @@ def test_no_verdict_mid_campaign():
     assert check_victory(make_state(turn=5)) is None
 
 
-def test_taking_moscow_is_a_decisive_axis_victory_immediately():
-    verdict = check_victory(make_state(turn=9, moscow="axis"))
+def test_taking_moscow_is_not_enough_on_its_own():
+    # It used to be a decisive win the instant control flipped, so the Siberian
+    # counteroffensive and the winter were scenery arriving after the credits.
+    verdict = check_victory(make_state(turn=9, moscow="axis", moscow_held=1))
+    assert verdict is None
+
+
+def test_two_turns_of_moscow_is_still_not_enough():
+    assert check_victory(make_state(turn=9, moscow="axis", moscow_held=2)) is None
+
+
+def test_holding_moscow_three_turns_is_a_decisive_axis_victory():
+    verdict = check_victory(make_state(turn=9, moscow="axis", moscow_held=3))
     assert verdict["winner"] == "axis"
     assert verdict["kind"] == "decisive"
 

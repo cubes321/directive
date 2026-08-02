@@ -47,6 +47,20 @@ def test_both_sides_start_fully_supplied_on_rail():
     assert starved == []
 
 
+def test_siberian_reinforcements_arrive_on_the_tuned_schedule():
+    # These were briefly moved to 13/15/17 to stop sov_sib1 being silently
+    # dropped when Moscow was full on its due turn. That was a workaround: the
+    # spill in _arrive_reinforcements fixes the drop properly, and a live
+    # 24-turn playtest showed the early arrival landing ~340 strength on an
+    # army group that had actually been fighting, turning the campaign into a
+    # rout. Back to the authored dates. A careless edit must not undo this.
+    s = load_scenario(DATA_DIR)
+    by_id = {r["corps"]["id"]: r["turn"] for r in s.reinforcements}
+    assert by_id["sov_sib1"] == 16
+    assert by_id["sov_sib2"] == 18
+    assert by_id["sov_sib3"] == 20
+
+
 def test_scenario_loads_okh_objectives():
     s = load_scenario(DATA_DIR)
     assert s.objectives, "expected an authored OKH objective schedule"

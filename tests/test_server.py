@@ -175,7 +175,10 @@ async def test_snapshot_reports_weather_and_victory(api):
     assert snap["weather"] == "clear"
     assert snap["victory"] is None
     session = get_session()
+    # Moscow must be held for MOSCOW_HOLD_TURNS consecutive turns, not merely
+    # touched - see engine/victory.py.
     session.campaign.state.control["moscow"] = "axis"
+    session.campaign.state.moscow_held_turns = 3
     snap = (await api.get("/api/game")).json()
     assert snap["victory"]["winner"] == "axis"
     r = await api.post("/api/game/end-turn")

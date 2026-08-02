@@ -323,7 +323,10 @@ async def test_running_out_of_standing_relieves_the_player():
         await campaign.play_turn({})
 
 
-async def test_taking_moscow_ends_the_game():
+async def test_taking_moscow_alone_does_not_end_the_game():
+    # Occupying the capital used to end the campaign the instant control
+    # flipped. Now the Siberian counteroffensive is still coming, so a single
+    # turn in the city is not a verdict.
     campaign = make_campaign()
     # stage guderian's panzers at the gates with the garrison destroyed
     for cid in ("xxiv_pz", "xlvi_pz", "xlvii_pz"):
@@ -331,6 +334,23 @@ async def test_taking_moscow_ends_the_game():
     campaign.state.control["mozhaisk"] = "axis"
     campaign.state.corps["sov_49a"].take_losses(strength=100)
     result = await campaign.play_turn({})
+    assert campaign.state.control["moscow"] == "axis"
+    assert result.victory is None
+
+
+async def test_holding_moscow_three_turns_ends_the_game():
+    campaign = make_campaign()
+    # stage guderian's panzers at the gates with the garrison destroyed
+    for cid in ("xxiv_pz", "xlvi_pz", "xlvii_pz"):
+        campaign.state.corps[cid].location = "mozhaisk"
+    campaign.state.control["mozhaisk"] = "axis"
+    campaign.state.corps["sov_49a"].take_losses(strength=100)
+
+    result = await campaign.play_turn({})  # turn 1: panzers occupy the empty capital
+    assert result.victory is None
+    result = await campaign.play_turn({})  # turn 2: held, but not long enough yet
+    assert result.victory is None
+    result = await campaign.play_turn({})  # turn 3: the hold sticks
     assert result.victory is not None
     assert result.victory["winner"] == "axis"
     with pytest.raises(ValueError, match="over"):

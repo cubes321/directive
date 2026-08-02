@@ -3,9 +3,11 @@
 Order of operations each turn:
   1. Uncontested moves (both sides, deterministic corps-id order)
   2. Combats, grouped by target region
-  3. Organization recovery for resting corps
+  3. Recovery for corps that neither moved nor fought
+  3b. Marching wastage for every corps whose location changed
   4. Supply tick
-  5. Turn counter
+  5. The Moscow clock
+  6. Turn counter
 
 Simultaneity is approximated: moves into regions without living enemy corps
 happen first; everything else is a combat.
@@ -38,7 +40,7 @@ from engine.supply import (
     compute_supply,
     default_railhead_on_load,
 )
-from engine.units import Corps
+from engine.units import DESTROYED_THRESHOLD, Corps
 from engine.weather import weather_for_turn
 
 STACKING_LIMIT = 3
@@ -52,6 +54,30 @@ REST_ORG_RECOVERY = 10
 # assaulted takes nothing: masking a Kessel costs the encircling side time,
 # which is the historical trade.
 POCKET_LOSS = 34
+
+# Marching wears an army out even where nobody is shooting: breakdowns,
+# straggling, sick horses, boots. Staying inside your railhead costs nothing;
+# every step of supply shortfall costs, and the weather multiplies it. This is
+# what makes the campaign harder as it gets further from the rail net, rather
+# than harder on a date in the calendar.
+WASTAGE_SUPPLY_STEP = 25
+WASTAGE_WEATHER = {"clear": 1.0, "mud": 2.0, "snow": 2.5}
+# Crossing three regions in a bound is harder on an army than crossing one, so
+# each region beyond the first adds this much again. It scales the shortfall
+# cost rather than standing alone: a lunge inside your own railhead is still
+# free, and only outrunning supply makes distance hurt.
+LUNGE_PENALTY = 0.33
+# How far from its depot a blocked reinforcement will detrain instead.
+SPILL_RADIUS = 3
+
+
+def march_wastage(corps: Corps, weather: str, hops: int = 1) -> int:
+    """Strength a marching corps loses to non-combat wastage this turn."""
+    shortfall = max(0, 100 - corps.supply)
+    lunge = 1.0 + LUNGE_PENALTY * max(0, hops - 1)
+    return round(
+        shortfall / WASTAGE_SUPPLY_STEP * WASTAGE_WEATHER.get(weather, 1.0) * lunge
+    )
 
 
 @dataclass
@@ -88,6 +114,16 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
     report = TurnReport(turn=state.turn)
     state.weather = weather_for_turn(state.turn)
     rng = random.Random(state.seed * 1000 + state.turn)
+
+    # Snapshot every corps' location before anything moves - including before
+    # reinforcements spawn, so a corps arriving this turn is simply absent
+    # from the snapshot rather than compared against its own arrival point.
+    # Wastage is charged at step 3b to any living corps whose location has
+    # since diverged from this snapshot, however it moved: uncontested march,
+    # combat advance, or retreat. A corps missing from the snapshot (just
+    # arrived) or whose location is unchanged (stayed put, or bounced) pays
+    # nothing.
+    locations_before_turn = {cid: c.location for cid, c in state.corps.items()}
 
     _arrive_reinforcements(state, report)
 
@@ -220,7 +256,10 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         )
 
     # 3. Recovery for corps that neither moved nor fought
-    moved = {m["corps"] for m in report.movements if not m.get("bounced")}
+    moved = {
+        m["corps"] for m in report.movements
+        if not m.get("bounced") and not m.get("delayed")
+    }
     for corps in state.living_corps():
         if corps.id in fought or corps.id in moved:
             continue
@@ -230,6 +269,33 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
             corps.recover(organization=RESERVE_ORG_RECOVERY, strength=RESERVE_STR_RECOVERY)
         else:
             corps.recover(organization=REST_ORG_RECOVERY)
+
+    # 3b. Marching wastage. Charge every living corps whose location actually
+    # changed this turn - uncontested moves, combat advances, and retreats
+    # alike - against the snapshot taken before the turn began. A corps
+    # absent from the snapshot just arrived and pays nothing; one whose
+    # location is unchanged (stood still, or bounced off a full region) pays
+    # nothing either.
+    marched = {
+        cid for cid, corps in state.corps.items()
+        if not corps.is_destroyed
+        and cid in locations_before_turn
+        and corps.location != locations_before_turn[cid]
+    }
+    for corps_id in sorted(marched):
+        corps = state.corps[corps_id]
+        origin = locations_before_turn[corps_id]
+        hops = state.game_map.distances_from([origin]).get(corps.location, 1)
+        # Floored so wastage can never deliver the killing blow: step 2 already
+        # wrote a combat report (outcome, encircled, defender_losses) assuming
+        # this corps survived, and five downstream readers (the battle report,
+        # _staff_facts, update_track_records, update_morale, the communiqué
+        # trigger) trust that story. Wastage wears an army out, never finishes it.
+        loss = min(
+            march_wastage(corps, state.weather, hops), corps.strength - DESTROYED_THRESHOLD
+        )
+        if loss > 0:
+            corps.take_losses(strength=loss, organization=loss * 2)
 
     # 4. Supply tick, per side: advance the railhead, then trace supply over it
     living = state.living_corps()
@@ -248,29 +314,70 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         ).items():
             state.corps[cid].supply = value
 
+    # 5. The Moscow clock. A capital only counts when you can keep it.
+    if state.control.get("moscow") == "axis":
+        state.moscow_held_turns += 1
+    else:
+        state.moscow_held_turns = 0
+
     state.turn += 1
     return report
 
 
+def _has_room(state: GameState, region_id: str, side: str) -> bool:
+    """Friendly ground with space for another corps."""
+    if state.control.get(region_id) != side:
+        return False
+    occupants = [c for c in state.corps_at(region_id) if not c.is_destroyed]
+    return len(occupants) < STACKING_LIMIT
+
+
+def _spill_region(state: GameState, scheduled: str, side: str) -> str | None:
+    """Where a reinforcement detrains when it cannot detrain at its depot.
+
+    An army that finds its railhead full or overrun gets off the train short of
+    it; it does not wait in a siding for the rest of the war. Nearest friendly
+    region with room, ties broken by id so the choice is deterministic.
+    """
+    hops = state.game_map.distances_from([scheduled])
+    reachable_room = [
+        r for r, distance in hops.items()
+        if distance <= SPILL_RADIUS and _has_room(state, r, side)
+    ]
+    return min(reachable_room, key=lambda r: (hops[r], r)) if reachable_room else None
+
+
 def _arrive_reinforcements(state: GameState, report: TurnReport) -> None:
-    """Spawn scheduled corps whose railhead is still friendly and has room;
-    anything blocked stays pending and is retried next turn."""
+    """Spawn scheduled corps at their railhead, or at the nearest friendly
+    ground with room if the railhead is full or overrun. Only a corps with
+    nowhere at all to detrain stays pending, and it says so."""
     still_pending = []
     for entry in state.reinforcements:
         corps_data = entry["corps"]
         side, location = corps_data["side"], corps_data["location"]
-        occupants = [c for c in state.corps_at(location) if not c.is_destroyed]
-        arrivable = (
-            entry["turn"] <= state.turn
-            and state.control.get(location) == side
-            and len(occupants) < STACKING_LIMIT
-        )
-        if arrivable:
-            corps = Corps.from_dict(corps_data)
-            state.corps[corps.id] = corps
-            report.movements.append({"corps": corps.id, "to": location, "arrived": True})
-        else:
+        due = entry["turn"] <= state.turn
+        if not due:
             still_pending.append(entry)
+            continue
+
+        arrival = location if _has_room(state, location, side) else _spill_region(
+            state, location, side
+        )
+        if arrival is not None:
+            corps = Corps.from_dict({**corps_data, "location": arrival})
+            state.corps[corps.id] = corps
+            movement = {"corps": corps.id, "to": arrival, "arrived": True}
+            if arrival != location:
+                movement["diverted_from"] = location
+            report.movements.append(movement)
+        else:
+            # Nowhere within reach is ours: the corps genuinely cannot detrain.
+            # It never spawns and nothing else records that this turn happened
+            # to it, so make the miss visible rather than silent.
+            still_pending.append(entry)
+            report.movements.append(
+                {"corps": corps_data["id"], "to": location, "delayed": True}
+            )
     state.reinforcements = still_pending
 
 

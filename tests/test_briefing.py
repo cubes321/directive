@@ -130,3 +130,13 @@ def test_briefing_lists_legal_destinations_per_corps():
 def test_briefing_only_covers_own_corps():
     text = briefing_for_guderian()
     assert "XXXIX Panzer Corps" not in text  # that's hoth's
+
+
+def test_briefing_reports_a_reduced_ceiling():
+    state = load_scenario(DATA_DIR)
+    worn = state.corps_for("guderian")[0]
+    worn.take_losses(strength=40)          # ceiling drops to 90
+    text = build_briefing(state, "guderian")
+    line = next(ln for ln in text.splitlines() if worn.name in ln)
+    assert "/90" in line                   # strength shown against the ceiling
+    assert "cadre" in line.lower() or "never" in line.lower()

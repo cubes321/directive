@@ -4,9 +4,10 @@ from engine.turn import _distribute_losses, resolve_turn
 from engine.units import Corps
 
 
-def _corps(cid, strength=100, organization=100):
+def _corps(cid, strength=100, organization=100, supply=100):
     return Corps(id=cid, name=cid.upper(), side="axis", kind="infantry",
-                 location="x", commander="c", strength=strength, organization=organization)
+                 location="x", commander="c", strength=strength,
+                 organization=organization, supply=supply)
 
 
 def test_distribute_losses_never_wastes_points_on_destroyed_corps():
@@ -262,3 +263,196 @@ def test_resolution_is_deterministic():
         return s.to_dict()
 
     assert play() == play()
+
+
+def test_marching_inside_your_supply_costs_nothing():
+    from engine.turn import march_wastage
+    c = _corps("c")           # supply defaults to 100
+    assert march_wastage(c, "clear") == 0
+
+
+def test_wastage_grows_with_the_supply_shortfall():
+    from engine.turn import march_wastage
+    assert march_wastage(_corps("a", supply=75), "clear") == 1
+    assert march_wastage(_corps("b", supply=20), "clear") == 3
+    assert march_wastage(_corps("c", supply=0), "clear") == 4
+
+
+def test_wastage_is_worse_in_mud_and_snow():
+    from engine.turn import march_wastage
+    outrun = dict(supply=20)
+    assert march_wastage(_corps("a", **outrun), "mud") == 6
+    assert march_wastage(_corps("b", **outrun), "snow") == 8
+
+
+def test_a_corps_that_marched_past_its_railhead_bleeds():
+    data = state_data()
+    data["corps"][0]["supply"] = 20
+    data["control"]["center"] = "axis"     # empty friendly ground: an uncontested move
+    s = GameState.from_dict(data)
+    before = s.corps["ax1"].strength
+    resolve_turn(s, orders(CorpsOrder("ax1", "advance", "center")))
+    assert s.corps["ax1"].strength < before
+    assert s.corps["ax1"].damage_taken > 0   # and it lowers the ceiling
+
+
+def test_a_corps_that_stayed_put_does_not_waste_away():
+    # The cost of standing still is the ground you are not taking, not blood.
+    # This is also what keeps a contained pocket alive.
+    data = state_data()
+    s = GameState.from_dict(data)
+    s.corps["ax1"].supply = 0
+    before = s.corps["ax1"].strength
+    resolve_turn(s, orders(CorpsOrder("ax1", "defend", None)))
+    assert s.corps["ax1"].strength == before
+
+
+def test_advancing_after_winning_combat_pays_wastage():
+    # Location changes here via the "defenders_gone" advance inside the combat
+    # branch, never through report.movements - the set that used to be charged
+    # for wastage never saw this corps at all.
+    from engine.turn import march_wastage
+
+    data = state_data()
+    data["corps"][0]["supply"] = 20  # attacker outrunning its railhead
+    data["corps"][2].update(strength=10, organization=10, location="center")
+    s = GameState.from_dict(data)
+    before = s.corps["ax1"].strength
+    report = resolve_turn(s, orders(CorpsOrder("ax1", "attack", "center")))
+
+    combat = report.combats[0]
+    assert combat["outcome"] != "defender_held"  # the weak defender broke
+    assert s.corps["ax1"].location == "center"  # attacker advanced
+
+    expected_wastage = march_wastage(_corps("x", supply=20), "clear")
+    assert expected_wastage > 0
+    assert before - s.corps["ax1"].strength == combat["attacker_losses"] + expected_wastage
+
+
+def test_retreating_from_lost_combat_pays_wastage():
+    # Location changes via the retreat branch, also never recorded in
+    # report.movements.
+    from engine.turn import march_wastage
+
+    data = state_data()
+    data["corps"][2].update(location="center", supply=20)  # weak, starved defender
+    s = GameState.from_dict(data)
+    before = s.corps["sv1"].strength
+    report = resolve_turn(s, orders(
+        CorpsOrder("ax1", "attack", "center"),
+        CorpsOrder("ax2", "attack", "center"),
+    ))
+
+    combat = report.combats[0]
+    assert combat["outcome"] == "defender_retreated"
+    assert s.corps["sv1"].location == "east"  # retreated, did not vanish
+
+    expected_wastage = march_wastage(_corps("x", supply=20), "clear")
+    assert expected_wastage > 0
+    assert before - s.corps["sv1"].strength == combat["defender_losses"] + expected_wastage
+
+
+def test_wastage_never_delivers_the_killing_blow():
+    # The retreat cap guarantees a combat survivor; step 3b marching wastage
+    # must not then finish off a corps combat already reported as surviving -
+    # or the written report (outcome, encircled, defender_losses) lies.
+    from engine.units import DESTROYED_THRESHOLD
+    data = state_data()
+    data["turn"] = 22  # snow: worst-case wastage multiplier
+    data["corps"][0].update(strength=DESTROYED_THRESHOLD + 3, supply=0)
+    data["control"]["center"] = "axis"  # empty friendly ground: uncontested move
+    s = GameState.from_dict(data)
+    resolve_turn(s, orders(CorpsOrder("ax1", "advance", "center")))
+    assert not s.corps["ax1"].is_destroyed
+    assert s.corps["ax1"].strength == DESTROYED_THRESHOLD
+
+
+def _lunge_state(supply):
+    # a -- b -- c -- d, all highway (cost 2). A panzer corps has 6 MP, so it can
+    # cross three regions in one bound. All friendly ground: an uncontested move.
+    return GameState.from_dict({
+        "map": {
+            "regions": [{"id": r, "name": r.title(), "terrain": "clear"}
+                        for r in ["a", "b", "c", "d"]],
+            "edges": [
+                {"between": ["a", "b"], "road": "highway", "rail": True},
+                {"between": ["b", "c"], "road": "highway", "rail": True},
+                {"between": ["c", "d"], "road": "highway", "rail": True},
+            ],
+        },
+        "corps": [{"id": "p1", "name": "P1", "side": "axis", "kind": "panzer",
+                   "location": "a", "commander": "guderian", "supply": supply}],
+        "control": {"a": "axis", "b": "axis", "c": "axis", "d": "axis"},
+        "supply_sources": {"axis": ["a"]},
+        "turn": 1, "seed": 1,
+    })
+
+
+def _wastage_for_move(supply, destination):
+    s = _lunge_state(supply)
+    s.corps["p1"].supply = supply          # survive the from_dict default
+    before = s.corps["p1"].strength
+    resolve_turn(s, orders(CorpsOrder("p1", "advance", destination)))
+    assert s.corps["p1"].location == destination, "the move did not happen"
+    return before - s.corps["p1"].strength
+
+
+def test_a_deep_lunge_costs_more_than_a_short_bound():
+    # Wastage was flat per turn: crossing three regions cost exactly what
+    # crossing one did, which is odd when the thesis is that the army wears out
+    # as it ADVANCES. Distance now tells.
+    one_hop = _wastage_for_move(20, "b")
+    three_hops = _wastage_for_move(20, "d")
+    assert three_hops > one_hop
+
+
+def test_lunging_inside_your_supply_is_still_free():
+    # The penalty scales the shortfall cost; with no shortfall there is nothing
+    # to scale. Racing ahead only hurts once you have outrun the railhead.
+    assert _wastage_for_move(100, "d") == 0
+
+
+def test_bounced_corps_pays_no_wastage():
+    # Regression: a corps that failed to squeeze into a full region never
+    # actually moved, so it must not be charged even if it is starving.
+    data = state_data()
+    data["corps"] += [
+        {"id": f"ax{i}", "name": f"Ax{i}", "side": "axis", "kind": "infantry",
+         "location": "center", "commander": "kluge"} for i in (3, 4, 5)
+    ]
+    data["control"]["center"] = "axis"
+    data["corps"][0]["supply"] = 0
+    s = GameState.from_dict(data)
+    before = s.corps["ax1"].strength
+    resolve_turn(s, orders(CorpsOrder("ax1", "advance", "center")))
+    assert s.corps["ax1"].location == "west"  # bounced
+    assert s.corps["ax1"].strength == before
+
+
+def test_the_moscow_clock_counts_up_and_resets_when_it_is_lost():
+    data = state_data()
+    data["map"]["regions"].append({"id": "moscow", "name": "Moscow", "terrain": "urban"})
+    data["map"]["edges"].append({"between": ["far_east", "moscow"],
+                                 "road": "highway", "rail": True})
+    data["control"]["moscow"] = "axis"
+    s = GameState.from_dict(data)
+    resolve_turn(s, {})
+    resolve_turn(s, {})
+    assert s.moscow_held_turns == 2
+    s.control["moscow"] = "soviet"
+    resolve_turn(s, {})
+    assert s.moscow_held_turns == 0
+
+
+def test_newly_arrived_reinforcement_pays_no_wastage():
+    # Regression: a reinforcement spawning this turn has not marched anywhere
+    # and must not be charged, no matter what supply value it spawns with.
+    data = state_data()
+    data["reinforcements"] = [{
+        "turn": 1,
+        "corps": {"id": "ax9", "name": "Ax9", "side": "axis", "kind": "infantry",
+                  "location": "west", "commander": "kluge", "supply": 0},
+    }]
+    s = GameState.from_dict(data)
+    resolve_turn(s, {})
+    assert s.corps["ax9"].strength == 100

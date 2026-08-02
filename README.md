@@ -202,6 +202,7 @@ it reads the file when it builds the client.
 | `play_campaign.py --turns 3` | run the full symmetric LLM campaign in the terminal |
 | `eval_guderian.py --turns 10 --swap-personality` | the Phase-2 evaluation: one LLM commander, with a personality-swap control |
 | `trace_campaign.py` | fast scripted campaign trace (no LLM) |
+| `replay_campaign.py` | replay a recorded run's real orders against the current rules — the honest way to ask "what would this change have done to a game I actually played?" |
 | `print_briefing.py guderian` | show exactly what a commander sees |
 | `analyze_logs.py` | tally LLM outcomes and failure reasons for the latest run (pass a name to target another, e.g. `eval_guderian`) |
 | `analyze_failures.py` | per-commander outcome breakdown and empty-response counts for the latest run |

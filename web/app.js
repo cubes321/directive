@@ -214,8 +214,12 @@ function showRegionPop(region, own, contacts, ev) {
   let html = `<h4>${esc(region.name)}</h4>
     <div class="meta">${esc(region.terrain)}${region.victory_points ? ` · ★${region.victory_points}` : ""} · held by ${esc(region.control.toUpperCase())}</div><ul>`;
   for (const c of own) {
+    // Show the cadre ceiling here too: this is the other place the player reads
+    // strength, and it disagreed with the FORCES tab for a worn corps.
+    const cap = Number(c.max_strength ?? 100);
+    const str = cap < 100 ? `${Number(c.strength)}/${cap}` : `${Number(c.strength)}`;
     html += `<li><b>${esc(c.name)}</b><br>
-      str <span class="bar" style="width:${Number(c.strength) * 0.45}px"></span> ${Number(c.strength)}
+      str <span class="bar" style="width:${Number(c.strength) * 0.45}px"></span> ${str}
       · org ${Number(c.organization)} · sup ${Number(c.supply)}</li>`;
   }
   for (const k of contacts) {
@@ -533,15 +537,18 @@ function renderOob() {
     const tbody = document.createElement("tbody");
     for (const c of corps) {
       const tr = document.createElement("tr");
+      const worn = Number(c.max_strength ?? 100) < 100;
       const cells = [
         `${c.name}${c.kind === "panzer" ? " ⛭" : ""}`,
         regionName[c.location] || c.location,
-        c.strength, c.organization, c.supply,
+        worn ? `${c.strength}/${c.max_strength}` : c.strength,
+        c.organization, c.supply,
       ];
+      const numeric = [null, null, c.strength, c.organization, c.supply];
       cells.forEach((v, i) => {
         const td = document.createElement("td");
         td.textContent = v;
-        if (i >= 2 && Number(v) < 40) td.className = "low";
+        if (i >= 2 && Number(numeric[i]) < 40) td.className = "low";
         tr.appendChild(td);
       });
       tr.addEventListener("mouseenter", () => {

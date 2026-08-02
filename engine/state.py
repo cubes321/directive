@@ -33,6 +33,7 @@ class GameState:
     # commander -> [{turn, role: player|commander, text}]
     railheads: dict[str, list[str]] = field(default_factory=dict)  # side -> converted region ids
     objectives: list[dict] = field(default_factory=list)  # OKH objective schedule + status
+    moscow_held_turns: int = 0  # consecutive turns the axis has held Moscow
 
     @property
     def date(self) -> datetime.date:
@@ -64,6 +65,7 @@ class GameState:
             conversations={k: list(v) for k, v in data.get("conversations", {}).items()},
             railheads={k: list(v) for k, v in data.get("railheads", {}).items()},
             objectives=[dict(o) for o in data.get("objectives", [])],
+            moscow_held_turns=data.get("moscow_held_turns", 0),
         )
 
     def to_dict(self) -> dict:
@@ -81,4 +83,5 @@ class GameState:
             "conversations": {k: list(v) for k, v in self.conversations.items()},
             "railheads": {k: list(v) for k, v in self.railheads.items()},
             "objectives": [dict(o) for o in self.objectives],
+            "moscow_held_turns": self.moscow_held_turns,
         }
