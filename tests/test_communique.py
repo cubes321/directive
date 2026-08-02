@@ -43,6 +43,30 @@ def test_salient_events_reports_victory_city_capture():
     assert "objective" in text  # flagged as a key objective (VP city)
 
 
+def test_salient_events_treat_a_pocket_as_progress_not_a_setback():
+    state, _ = setup()
+    report = TurnReport(turn=2, combats=[{
+        "region": "minsk", "attackers": ["xxiv_pz"], "defenders": ["sov_13a"],
+        "odds": 62.0, "attacker_losses": 1, "defender_losses": 34,
+        "outcome": "pocket_holding", "encircled": False,
+    }])
+    text = " ".join(salient_events(state, report, "axis")["guderian"]).lower()
+    assert "thrown back" not in text
+    assert "pocket" in text or "encircled" in text
+
+
+def test_salient_events_flag_our_own_corps_being_encircled():
+    # Being cut off is exactly the sort of week a commander writes home about.
+    state, _ = setup()
+    report = TurnReport(turn=2, combats=[{
+        "region": "brest", "attackers": ["sov_4a"], "defenders": ["xxiv_pz"],
+        "odds": 5.0, "attacker_losses": 2, "defender_losses": 30,
+        "outcome": "pocket_holding", "encircled": False,
+    }])
+    text = " ".join(salient_events(state, report, "axis")["guderian"]).lower()
+    assert "encircled" in text or "cut off" in text
+
+
 def test_salient_events_reports_supply_crisis():
     state, _ = setup()
     for c in state.corps_for("strauss"):

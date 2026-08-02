@@ -35,6 +35,14 @@ outside (e.g. telemetry), the engine *builds the data* and a caller *writes it*
   losses *applied*, not the losses computed (`engine/turn.py:_distribute_losses`);
   a region changes hands only when no living defender is still standing on it,
   not because a retreat was *ordered*.
+- **One label, five readers — never conflate two situations in an outcome.**
+  `combat["outcome"]` is read by the battle report, the staff summary, the
+  communiqué trigger, the track record *and* morale. When "the pocket is holding"
+  shared the `defender_held` label with "you were repulsed", a 62:1 pocket
+  reduction was shown to the player in red as a failed assault, written into the
+  attacker's record as `assault repulsed`, and cost him confidence and patience
+  for winning — while the trapped defender *gained* both for dying. Add a value
+  (`pocket_holding`), then grep every consumer.
 - **Every multiplicative factor gets a floor.** `combat_power` multiplies supply,
   organization and experience together, so any one of them reaching zero zeroes
   the unit — the defence then falls through to `max(defense, 1.0)` and "odds"

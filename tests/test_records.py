@@ -64,6 +64,29 @@ def test_encirclement_noted_in_record():
     assert "encircled" in dossiers["guderian"].track_record[0]["summary"].lower()
 
 
+def test_reducing_a_pocket_reads_as_progress_for_the_attacker():
+    # Hoth banked three "assault repulsed" records for grinding down an
+    # encircled army, took -1 confidence and -1 relationship each time, and
+    # finished the game insubordinate at relationship 2 - for winning.
+    state, dossiers = setup()
+    report = TurnReport(
+        turn=3,
+        combats=[{
+            "region": "minsk", "terrain": "urban",
+            "attackers": ["xxiv_pz"], "defenders": ["sov_13a"],
+            "odds": 62.3, "attacker_losses": 1, "defender_losses": 34,
+            "outcome": "pocket_holding", "encircled": False,
+            "attacker_details": [], "defender_details": [],
+        }],
+    )
+    update_track_records(state, report, dossiers)
+    attacker = dossiers["guderian"].track_record[0]["summary"].lower()
+    assert "repulsed" not in attacker
+    assert "encircled" in attacker or "pocket" in attacker
+    defender = dossiers["pavlov"].track_record[0]["summary"].lower()
+    assert "held against attack" not in defender
+
+
 def test_quiet_turn_leaves_no_record():
     state, dossiers = setup()
     update_track_records(state, TurnReport(turn=2), dossiers)
@@ -167,6 +190,23 @@ def test_soviet_commanders_feel_their_war_too():
     update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(0))
     assert c.dossiers[pav].dynamic["confidence"] == before - 2   # position overrun
     assert c.dossiers[pav].dynamic["fatigue"] == 1               # and he was in it
+
+
+def test_pocket_reduction_lifts_the_attacker_and_sinks_the_trapped_defender():
+    c = Campaign.new(DATA_DIR)
+    gud, pav = "guderian", "pavlov"
+    att = c.state.corps_for(gud)[0]
+    trapped = c.state.corps_for(pav)[0]
+    a_conf = c.dossiers[gud].dynamic["confidence"]
+    a_rel = c.dossiers[gud].dynamic["relationship"]
+    d_conf = c.dossiers[pav].dynamic["confidence"]
+    rep = TurnReport(turn=c.state.turn, movements=[],
+                     combats=[_combat([att.id], trapped.location, "pocket_holding",
+                                      defenders=[trapped.id])])
+    update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(0))
+    assert c.dossiers[gud].dynamic["confidence"] == a_conf + 1   # the ring tightens
+    assert c.dossiers[gud].dynamic["relationship"] == a_rel + 1
+    assert c.dossiers[pav].dynamic["confidence"] == d_conf - 1   # trapped and bleeding
 
 
 def test_losing_ground_costs_standing_with_high_command():

@@ -186,6 +186,17 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
             c for c in defenders if not c.is_destroyed and c.location == region
         ]
         if defenders_gone:
+            outcome = "defender_retreated"
+        elif result.defender_retreats:
+            # Routed, but with no line of retreat to take: a pocket. Distinct
+            # from a repulse - the attacker is winning, just not finished. They
+            # read identically before, so reducing a Kessel was reported to the
+            # player (and written into the attacker's record) as a failed assault.
+            outcome = "pocket_holding"
+        else:
+            outcome = "defender_held"
+
+        if defenders_gone:
             for corps in attackers:
                 if not corps.is_destroyed and friendly_count(region, corps.side) < STACKING_LIMIT:
                     corps.location = region
@@ -200,7 +211,7 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
                 "odds": round(result.odds, 2),
                 "attacker_losses": applied_attacker_losses,
                 "defender_losses": applied_defender_losses,
-                "outcome": "defender_retreated" if defenders_gone else "defender_held",
+                "outcome": outcome,
                 "encircled": result.defender_retreats
                 and all(c.is_destroyed for c in defenders),
                 "attacker_details": attacker_details,

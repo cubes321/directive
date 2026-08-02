@@ -11,6 +11,26 @@ from commanders.scripted import scripted_orders
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 
+def test_staff_report_calls_a_pocket_a_pocket():
+    # The weekly staff summary derived "assault repulsed" from any non-retreat
+    # outcome, so the chief of staff told the player his 62:1 attack had failed
+    # while it was in fact grinding down an encircled army.
+    from engine.turn import TurnReport
+
+    c = Campaign.new(DATA_DIR)
+    ours = c.state.corps_for("guderian")[0]
+    theirs = c.state.corps_for("pavlov")[0]
+    report = TurnReport(turn=1, combats=[{
+        "region": theirs.location, "terrain": "clear",
+        "attackers": [ours.id], "defenders": [theirs.id],
+        "odds": 62.0, "attacker_losses": 1, "defender_losses": 34,
+        "outcome": "pocket_holding", "encircled": False,
+    }])
+    facts = " ".join(c._staff_facts(report)).lower()
+    assert "repulsed" not in facts
+    assert "pocket" in facts or "encircled" in facts
+
+
 def scripted_as_model(campaign):
     """Mock transport that answers as whichever commander was prompted,
     using the scripted policy - a deterministic stand-in for the LLM."""

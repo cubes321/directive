@@ -280,11 +280,18 @@ class Campaign:
             region = self.state.game_map.regions[c["region"]].name
             we_attacked = self.state.corps[c["attackers"][0]].side == self.player_side
             won = c["outcome"] == "defender_retreated"
+            pocket = c["outcome"] == "pocket_holding"
             if we_attacked:
-                verdict = "position carried" if won else "assault repulsed"
+                if pocket:
+                    verdict = "the defenders are encircled, the pocket is being reduced"
+                else:
+                    verdict = "position carried" if won else "assault repulsed"
                 own_losses, enemy_losses = c["attacker_losses"], c["defender_losses"]
             else:
-                verdict = "position lost" if won else "attack beaten off"
+                if pocket:
+                    verdict = "our formations there are encircled with no line of retreat"
+                else:
+                    verdict = "position lost" if won else "attack beaten off"
                 own_losses, enemy_losses = c["defender_losses"], c["attacker_losses"]
             line = (
                 f"{region}: {'our attack' if we_attacked else 'enemy attack'}, "

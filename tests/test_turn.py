@@ -139,6 +139,34 @@ def test_encircled_corps_at_full_strength_is_mauled_not_erased():
     assert s.corps["sv1"].is_destroyed               # third assault reduces the pocket
 
 
+def test_reducing_a_pocket_is_not_reported_as_a_repulse():
+    # The region does not change hands while a live defender stands on it, which
+    # is right - but that was reported as outcome "defender_held", i.e. exactly
+    # the same as being thrown back. A real game showed a 62:1 assault that cost
+    # the attacker 1 and the defender 34 rendered to the player as "Assault
+    # repulsed", so he fed in more corps for three turns running.
+    data = state_data()
+    data["corps"][2].update(location="center", strength=100, organization=100)
+    data["control"] = {"west": "axis", "center": "soviet", "east": "axis", "far_east": "axis"}
+    s = GameState.from_dict(data)
+    report = resolve_turn(s, orders(
+        CorpsOrder("ax1", "attack", "center"), CorpsOrder("ax2", "attack", "center"),
+    ))
+    combat = report.combats[0]
+    assert combat["outcome"] == "pocket_holding"
+    assert combat["defender_losses"] > combat["attacker_losses"]
+
+
+def test_a_genuine_repulse_is_still_a_repulse():
+    # regression: an ordinary failed attack must not be dressed up as a pocket
+    data = state_data()
+    data["corps"][0].update(strength=25, organization=40)
+    data["corps"][2].update(strength=100, organization=100, location="center")
+    s = GameState.from_dict(data)
+    report = resolve_turn(s, orders(CorpsOrder("ax1", "attack", "center")))
+    assert report.combats[0]["outcome"] == "defender_held"
+
+
 def test_contained_pocket_is_not_destroyed_by_containment_alone():
     # Historically a Kessel that was merely masked held out for weeks. Losses
     # come from assaulting it, so a turn without an attack costs the pocket

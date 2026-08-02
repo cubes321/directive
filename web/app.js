@@ -579,8 +579,12 @@ function renderBattles() {
     const div = document.createElement("div");
     const axisAttacking = !c.attackers[0].startsWith("sov_");
     const won = c.outcome === "defender_retreated";
-    const good = axisAttacking ? won : !won;
-    div.className = "battle-line" + (good ? "" : " lost");
+    // A pocket still holding is not a repulse: the attacker is winning, just
+    // not finished. Shown as a setback, it reads as "send more corps".
+    const pocket = c.outcome === "pocket_holding";
+    const prevailed = won || pocket;
+    const good = axisAttacking ? prevailed : !prevailed;
+    div.className = "battle-line" + (good ? "" : " lost") + (pocket ? " pocket" : "");
     const where = document.createElement("span");
     where.className = "where";
     where.textContent = regionName[c.region] || c.region;
@@ -588,6 +592,7 @@ function renderBattles() {
     div.appendChild(document.createTextNode(
       ` — ${c.attackers.join(", ")} attacked ${c.defenders.join(", ")} at odds ${c.odds}. ` +
       (won ? (c.encircled ? "Defenders encircled and destroyed." : "Position carried; defenders thrown back.")
+           : pocket ? "Defenders encircled with no line of retreat; the pocket is holding but being reduced."
            : "Assault repulsed.") +
       ` Losses: attacker ${c.attacker_losses}, defender ${c.defender_losses}.`
     ));

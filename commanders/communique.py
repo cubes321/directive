@@ -37,6 +37,7 @@ def salient_events(
     for combat in report.combats:
         region = state.game_map.regions[combat["region"]]
         won = combat["outcome"] == "defender_retreated"
+        pocket = combat["outcome"] == "pocket_holding"
         is_vp = region.victory_points > 0
         for cid in combat["attackers"]:
             corps = state.corps.get(cid)
@@ -47,6 +48,9 @@ def salient_events(
             elif won:
                 note(corps.commander,
                      f"carried {region.name}" + (", a key objective" if is_vp else ""))
+            elif pocket:
+                note(corps.commander, f"has the enemy encircled at {region.name} and is "
+                                      f"reducing the pocket")
             else:
                 note(corps.commander, f"was thrown back attacking {region.name}")
         for cid in combat["defenders"]:
@@ -55,6 +59,8 @@ def salient_events(
                 continue
             if won:  # defender retreated => player lost the position
                 note(corps.commander, f"lost {region.name}")
+            elif pocket:
+                note(corps.commander, f"is encircled at {region.name} with no line of retreat")
             else:
                 note(corps.commander, f"held {region.name} against attack")
 

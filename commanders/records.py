@@ -73,6 +73,10 @@ def update_morale(
     fought: set[str] = set()
     for combat in report.combats:
         won = combat["outcome"] == "defender_retreated"
+        # An encircled defender still standing is not a repulse: the ring is
+        # being tightened. Scoring it as one had commanders lose confidence and
+        # patience for winning, and the trapped defender gain them for dying.
+        pocket = combat["outcome"] == "pocket_holding"
         for cid in combat["attackers"]:
             cmd = _commander_of(state, cid)
             if cmd is None:
@@ -81,7 +85,7 @@ def update_morale(
             if won and combat["encircled"]:
                 conf[cmd] += 2
                 rel[cmd] += 1
-            elif won:
+            elif won or pocket:
                 conf[cmd] += 1
                 rel[cmd] += 1
             else:
@@ -92,8 +96,11 @@ def update_morale(
             if cmd is None:
                 continue
             fought.add(cmd)
-            conf[cmd] += -2 if won else 1   # lost the position, or held it
-            if won:
+            if pocket:
+                conf[cmd] -= 1   # cut off and being reduced, not holding a line
+            else:
+                conf[cmd] += -2 if won else 1   # lost the position, or held it
+            if won or pocket:
                 # Losing ground your superior told you to hold costs standing
                 # with him. Merely holding earns nothing: that was the job.
                 rel[cmd] -= 1
@@ -124,6 +131,7 @@ def update_track_records(
     for combat in report.combats:
         region = state.game_map.regions[combat["region"]].name
         won = combat["outcome"] == "defender_retreated"
+        pocket = combat["outcome"] == "pocket_holding"
 
         for commander in {_commander_of(state, cid) for cid in combat["attackers"]}:
             if commander not in dossiers:
@@ -137,6 +145,12 @@ def update_track_records(
                 summary = (
                     f"Attacked {region}: position carried, enemy thrown back "
                     f"(own losses {combat['attacker_losses']})."
+                )
+            elif pocket:
+                summary = (
+                    f"Attacked {region}: the defenders are encircled with no line of "
+                    f"retreat; the pocket is being reduced (their losses "
+                    f"{combat['defender_losses']}, own {combat['attacker_losses']})."
                 )
             else:
                 summary = (
@@ -154,6 +168,11 @@ def update_track_records(
                 summary = (
                     f"Defended {region}: forced to retreat "
                     f"(losses {combat['defender_losses']})."
+                )
+            elif pocket:
+                summary = (
+                    f"Encircled at {region}: thrown back with no line of retreat, the "
+                    f"pocket is being reduced (losses {combat['defender_losses']})."
                 )
             else:
                 summary = (
