@@ -98,16 +98,20 @@ stays 3. The reasoning for each is in "Risks checked" below.
 - Outcome: **marginal axis victory on objective points** (25 VP vs the 18
   threshold) — "a deep but indecisive advance."
 
-The odds curve at Moscow is the interesting artefact:
+The odds curve at Moscow is the interesting artefact. Full series, one value per
+turn from T16 to T24:
 
 ```
-T16 odds 0.68   T18 0.86   T20 0.74   T22 0.56   T24 0.26
+T16 0.68   T17 0.91   T18 0.86   T19 0.79   T20 0.74   T21 0.70   T22 0.56   T23 0.42   T24 0.26
 ```
 
-The same three panzer corps assault the same three defenders for nine turns and
-their odds decay from 0.68 to 0.26 as they wear out — 46/51/56 strength by T24,
-against ceilings of 84/85/87. That is the ramp doing exactly what it was written
-to do: an army that keeps attacking without pause gets progressively worse at it.
+The same three panzer corps assault the same three defenders for nine turns.
+The curve is not a monotonic decay: it rises from 0.68 to a peak of 0.91 at T17
+before decaying to 0.26 by T24 — 46/51/56 strength by T24, against ceilings of
+84/85/87. The early rise is not the ramp failing; the sustained decay after the
+peak is the ramp doing what it was written to do: an army that keeps attacking
+without pause gets progressively worse at it, just not from the very first
+assault.
 
 ## Risks checked (Step 3)
 
@@ -170,9 +174,24 @@ up, and can rest a spent panzer corps in reserve rather than throwing it at 0.26
 odds. The intended experience — take the city, then try to hold it for three
 turns against the Siberians — is still on the table.
 
-**The caveat:** `MOSCOW_HOLD_TURNS = 3` is completely untested by this method.
-The scripted Soviets never counterattack, so in the "before" run the axis held
-Moscow for six turns entirely unopposed, and in the "after" run the clock never
-starts. Whether three turns is the right number can only be judged against
-commanders that actually launch the counterattack. That is Step 5 (the live LLM
-playtest), which has not been run.
+**The caveat:** `MOSCOW_HOLD_TURNS = 3` is never *contested* by this method — not
+untested outright. The clock is real and does run: in the "before" run the axis
+took Moscow at T19 and held it for six consecutive turns; `moscow_held_turns`
+reached the threshold two turns later and `check_victory` fired the
+decisive-axis branch at turn 21, exactly as `MOSCOW_HOLD_TURNS = 3` specifies.
+The campaign then froze because the scripted Soviets never come back to
+retake the city. In the "after" run Moscow never falls, so the clock never
+starts — but that is the axis being stopped at the gates, not the clock failing
+to run. What this method cannot show is whether 3 is the *right* number,
+because the scripted Soviets never counterattack once the axis is inside the
+city: nothing ever tests whether a defender could retake Moscow before the
+clock expires. That judgment needs commanders that actually launch the
+counterattack. That is Step 5 (the live LLM playtest), which has not been run.
+
+**Single-seed caveat.** Every number above comes from one seed
+(`DEFAULT_SEED = 1941`). A 10-seed sweep with the re-timed schedule found the
+direction robust but not universal: 9 of 10 seeds now never lose Moscow (versus
+6 of 10 decisive-axis outcomes before the change), but at seed 7 the new
+schedule still loses Moscow at turn 21 and holds it for the full 4 turns,
+resolving as a decisive axis win. The re-timing improves the odds; it does not
+guarantee the outcome. Do not read the single-seed trace above as "fixed."

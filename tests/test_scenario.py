@@ -47,6 +47,18 @@ def test_both_sides_start_fully_supplied_on_rail():
     assert starved == []
 
 
+def test_siberian_reinforcements_arrive_on_the_tuned_schedule():
+    # Pins the ramp-baseline re-timing (task 5): the three Siberian groups were
+    # moved from turns 16/18/20 to 13/15/17 so sov_sib1 has room in Moscow
+    # before the Mozhaisk garrison retreats into it. A careless edit to
+    # data/oob_1941.json must not be able to silently undo that tuning.
+    s = load_scenario(DATA_DIR)
+    by_id = {r["corps"]["id"]: r["turn"] for r in s.reinforcements}
+    assert by_id["sov_sib1"] == 13
+    assert by_id["sov_sib2"] == 15
+    assert by_id["sov_sib3"] == 17
+
+
 def test_scenario_loads_okh_objectives():
     s = load_scenario(DATA_DIR)
     assert s.objectives, "expected an authored OKH objective schedule"

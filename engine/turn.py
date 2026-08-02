@@ -244,7 +244,10 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         )
 
     # 3. Recovery for corps that neither moved nor fought
-    moved = {m["corps"] for m in report.movements if not m.get("bounced")}
+    moved = {
+        m["corps"] for m in report.movements
+        if not m.get("bounced") and not m.get("delayed")
+    }
     for corps in state.living_corps():
         if corps.id in fought or corps.id in moved:
             continue
@@ -307,9 +310,10 @@ def _arrive_reinforcements(state: GameState, report: TurnReport) -> None:
     for entry in state.reinforcements:
         corps_data = entry["corps"]
         side, location = corps_data["side"], corps_data["location"]
+        due = entry["turn"] <= state.turn
         occupants = [c for c in state.corps_at(location) if not c.is_destroyed]
         arrivable = (
-            entry["turn"] <= state.turn
+            due
             and state.control.get(location) == side
             and len(occupants) < STACKING_LIMIT
         )
@@ -319,6 +323,14 @@ def _arrive_reinforcements(state: GameState, report: TurnReport) -> None:
             report.movements.append({"corps": corps.id, "to": location, "arrived": True})
         else:
             still_pending.append(entry)
+            if due:
+                # Blocked - enemy-held railhead, or friendly but full. Either
+                # way the corps never spawns and nothing else records this
+                # turn ever happened to it, so make the miss visible instead
+                # of silent. (Not yet due is not a miss - don't report it.)
+                report.movements.append(
+                    {"corps": corps_data["id"], "to": location, "delayed": True}
+                )
     state.reinforcements = still_pending
 
 
