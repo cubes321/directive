@@ -20,6 +20,8 @@ SIGNAL_MIN_CHANCE = 0.05
 SIGNAL_MAX_CHANCE = 0.9
 CONF_CAP = 3   # max confidence swing per turn
 REL_CAP = 2    # max relationship swing per turn, before the signal roll
+FATIGUE_RISE = 2   # exhaustion sets in faster...
+FATIGUE_FALL = 1   # ...than it lifts
 
 
 def _commander_of(state: GameState, corps_id: str) -> str | None:
@@ -36,6 +38,24 @@ def _signal_warm_chance(ego: int) -> float:
     words alone; steadier commanders respond to attention."""
     return max(SIGNAL_MIN_CHANCE,
                min(SIGNAL_MAX_CHANCE, SIGNAL_BASE_CHANCE - SIGNAL_EGO_WEIGHT * ego))
+
+
+def _fatigue_target(state: GameState, commander_id: str) -> int:
+    """How worn this commander's formations actually are, 0-10.
+
+    A formation is only as fresh as its most depleted resource, so each corps
+    counts by ``min(organization, supply)``: full cohesion is worth little
+    without fuel, and full depots are worth little to a broken corps.
+
+    This replaces a counter that added 1 for moving-or-fighting and subtracted 1
+    for resting. In an offensive nobody rests, so it ratcheted to the ceiling in
+    lockstep and told you nothing about who was actually in trouble.
+    """
+    corps = [c for c in state.corps_for(commander_id) if not c.is_destroyed]
+    if not corps:
+        return 0
+    condition = sum(min(c.organization, c.supply) for c in corps) / len(corps)
+    return round((100 - condition) / 10)
 
 
 def _signalled_this_turn(state: GameState, commander_id: str, turn: int) -> bool:
@@ -65,12 +85,8 @@ def update_morale(
     Psychological only - never touches the engine. Deterministic: the signalling
     roll is seeded and commanders are visited in id order."""
     rng = rng or random.Random(state.seed * 7907 + report.turn)
-    moved = {m["corps"] for m in report.movements
-             if not m.get("bounced") and not m.get("arrived")}
-
     conf: dict[str, int] = defaultdict(int)
     rel: dict[str, int] = defaultdict(int)
-    fought: set[str] = set()
     for combat in report.combats:
         won = combat["outcome"] == "defender_retreated"
         # An encircled defender still standing is not a repulse: the ring is
@@ -81,7 +97,6 @@ def update_morale(
             cmd = _commander_of(state, cid)
             if cmd is None:
                 continue
-            fought.add(cmd)
             if won and combat["encircled"]:
                 conf[cmd] += 2
                 rel[cmd] += 1
@@ -95,7 +110,6 @@ def update_morale(
             cmd = _commander_of(state, cid)
             if cmd is None:
                 continue
-            fought.add(cmd)
             if pocket:
                 conf[cmd] -= 1   # cut off and being reduced, not holding a line
             else:
@@ -111,8 +125,13 @@ def update_morale(
         dc = max(-CONF_CAP, min(CONF_CAP, conf.get(cid, 0)))
         dyn["confidence"] = _clamp(dyn.get("confidence", 5) + dc)
 
-        commander_moved = any(_commander_of(state, x) == cid for x in moved)
-        dyn["fatigue"] = _clamp(dyn.get("fatigue", 0) + (1 if (cid in fought or commander_moved) else -1))
+        target = _fatigue_target(state, cid)
+        worn = dyn.get("fatigue", 0)
+        if worn < target:
+            worn = min(target, worn + FATIGUE_RISE)
+        elif worn > target:
+            worn = max(target, worn - FATIGUE_FALL)
+        dyn["fatigue"] = _clamp(worn)
 
         dr = max(-REL_CAP, min(REL_CAP, rel.get(cid, 0)))
         # The warming roll models the player's personal attention, so it applies

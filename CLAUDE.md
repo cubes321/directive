@@ -68,6 +68,12 @@ outside (e.g. telemetry), the engine *builds the data* and a caller *writes it*
   into rules.
 - **Morale is psychological-only.** `dossier.dynamic` feeds the persona *prompt*;
   it never touches combat maths. Keep that boundary.
+- **Derive a mood dial from state, don't integrate activity into it.** `fatigue`
+  used to add 1 for moving-or-fighting and subtract 1 for resting — but in an
+  offensive nobody rests, so it ratcheted to the ceiling in lockstep (six of nine
+  commanders sat at exactly 6) and discriminated nobody. It now seeks a target
+  derived from what the corps *are* (`_fatigue_target`: mean of
+  `min(organization, supply)`), which moves both ways and cannot saturate.
 - **Fog discipline in the UI.** Only ever surface the player's own side; the
   snapshot is already fog-filtered, and views (e.g. the movements tab) must
   filter to own corps.

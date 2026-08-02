@@ -90,6 +90,8 @@ def _current_state_block(dossier: Dossier) -> str:
         lines.append("Recent reverses have shaken you; you are second-guessing yourself.")
     if fat >= 7:
         lines.append("Your formations are exhausted, stretched past the point of endurance.")
+    elif fat >= 4:
+        lines.append("Your formations are worn: men tired, vehicles overdue, stocks thin.")
     # Same dial, opposite psychology. A German army commander who has lost
     # patience with headquarters starts freelancing; a Red Army commander out of
     # favour with Stavka in 1941 gets more compliant, not less - Pavlov was shot

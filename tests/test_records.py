@@ -131,18 +131,53 @@ def test_repulsed_attack_lowers_confidence_and_relationship():
     assert c.dossiers[gud].dynamic["relationship"] == before_rel - 1
 
 
-def test_resting_lowers_fatigue_and_fighting_raises_it():
+def _quiet(c):
+    return TurnReport(turn=c.state.turn, combats=[], movements=[])
+
+
+def test_fatigue_reflects_condition_not_mileage():
+    # It used to be +1 for moving-or-fighting and -1 for resting. In an
+    # offensive nobody rests, so it ratcheted to the ceiling in lockstep: six of
+    # nine commanders sat at exactly 6 by turn 7 and it discriminated nobody.
     c = Campaign.new(DATA_DIR)
     gud = "guderian"
-    corps = c.state.corps_for(gud)
-    c.dossiers[gud].dynamic["fatigue"] = 5
-    update_morale(c.state, TurnReport(turn=c.state.turn, combats=[], movements=[]),
-                  c.dossiers, c.player_side, rng=random.Random(0))
-    assert c.dossiers[gud].dynamic["fatigue"] == 4
+    corps = c.state.corps_for(gud)          # all at organization 100, supply 100
     rep = TurnReport(turn=c.state.turn, movements=[],
                      combats=[_combat([corps[0].id], corps[0].location, "defender_retreated")])
-    update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(0))
-    assert c.dossiers[gud].dynamic["fatigue"] == 5
+    for _ in range(5):
+        update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(0))
+    assert c.dossiers[gud].dynamic["fatigue"] == 0   # fresh corps, marching is not wear
+
+
+def test_fatigue_rises_as_the_formations_actually_wear_down():
+    c = Campaign.new(DATA_DIR)
+    gud = "guderian"
+    for corps in c.state.corps_for(gud):
+        corps.supply = 10                    # outrun the railhead: fuel is the constraint
+    update_morale(c.state, _quiet(c), c.dossiers, c.player_side, rng=random.Random(0))
+    assert c.dossiers[gud].dynamic["fatigue"] > 0
+
+
+def test_fatigue_eases_once_they_are_rested_and_resupplied():
+    c = Campaign.new(DATA_DIR)
+    gud = "guderian"
+    c.dossiers[gud].dynamic["fatigue"] = 8   # corps are at full organization and supply
+    update_morale(c.state, _quiet(c), c.dossiers, c.player_side, rng=random.Random(0))
+    assert c.dossiers[gud].dynamic["fatigue"] == 7
+
+
+def test_exhaustion_arrives_faster_than_it_lifts():
+    c = Campaign.new(DATA_DIR)
+    gud = "guderian"
+    for corps in c.state.corps_for(gud):
+        corps.organization, corps.supply = 10, 10
+    update_morale(c.state, _quiet(c), c.dossiers, c.player_side, rng=random.Random(0))
+    climbed = c.dossiers[gud].dynamic["fatigue"]
+    for corps in c.state.corps_for(gud):
+        corps.organization, corps.supply = 100, 100
+    update_morale(c.state, _quiet(c), c.dossiers, c.player_side, rng=random.Random(0))
+    eased = climbed - c.dossiers[gud].dynamic["fatigue"]
+    assert climbed == 2 and eased == 1
 
 
 def test_morale_clamps_between_0_and_10():
@@ -189,7 +224,7 @@ def test_soviet_commanders_feel_their_war_too():
                                       defenders=[losing.id])])
     update_morale(c.state, rep, c.dossiers, c.player_side, rng=random.Random(0))
     assert c.dossiers[pav].dynamic["confidence"] == before - 2   # position overrun
-    assert c.dossiers[pav].dynamic["fatigue"] == 1               # and he was in it
+    assert c.dossiers[pav].dynamic["fatigue"] > 0                # his armies start ragged
 
 
 def test_pocket_reduction_lifts_the_attacker_and_sinks_the_trapped_defender():
