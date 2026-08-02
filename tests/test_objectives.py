@@ -1,4 +1,4 @@
-from engine.objectives import advance_objectives
+from engine.objectives import LOST_GROUND_PENALTY, advance_objectives
 from engine.state import GameState
 
 
@@ -105,7 +105,8 @@ def test_met_objective_reopens_if_the_target_is_lost_before_the_deadline():
     events = advance_objectives(s, player_side="axis")
     assert s.objectives[0]["status"] == "active"
     reopened = next(e for e in events if e["type"] == "reopened")
-    assert reopened["capital_delta"] == -3   # the reward is handed back
+    # the reward is handed back, plus a sting for giving up what you had taken
+    assert reopened["capital_delta"] == -(3 + LOST_GROUND_PENALTY)
 
 
 def test_a_reopened_objective_can_be_met_again():
@@ -123,22 +124,38 @@ def test_met_diversion_reopens_as_accepted_not_active():
     assert s.objectives[0]["status"] == "accepted"
 
 
-def test_an_objective_held_to_its_deadline_is_banked_for_good():
-    # deadline 4, now turn 5: you delivered on time. Losing it later is a
-    # different problem and must not claw back standing you earned.
+def test_an_objective_held_to_its_deadline_stays_achieved():
+    # deadline 4, now turn 5: you delivered on time, so the achievement stands
+    # and the reward is never clawed back - losing the place later is a separate,
+    # smaller reckoning (below).
     s = make_state(turn=5, objectives=[capture_obj(status="met")])
     events = advance_objectives(s, player_side="axis")
     assert s.objectives[0]["status"] == "met"
-    assert not [e for e in events if e["capital_delta"]]
+    assert all(e["capital_delta"] > -3 for e in events)   # not the full reward back
 
 
-def test_losing_a_banked_objective_warns_once():
+def test_losing_a_banked_objective_costs_standing_once():
     s = make_state(turn=5, objectives=[capture_obj(status="met")])
     events = advance_objectives(s, player_side="axis")
-    warning = next(e for e in events if e["type"] == "lost")
-    assert warning["capital_delta"] == 0     # a signal, not a punishment
-    assert "Minsk" in warning["text"]
-    assert advance_objectives(s, player_side="axis") == []  # and never nags again
+    lost = next(e for e in events if e["type"] == "lost")
+    assert lost["capital_delta"] == -LOST_GROUND_PENALTY
+    assert "Minsk" in lost["text"]
+    assert advance_objectives(s, player_side="axis") == []  # and never charges twice
+
+
+def test_giving_back_a_captured_objective_stings_more_than_never_taking_it():
+    # Take it, lose it inside the window, then miss the deadline: that must cost
+    # more than simply never getting there, because you had it and let it go.
+    s = make_state(turn=3, objectives=[capture_obj(status="met")])
+    gave_back = sum(e["capital_delta"] for e in advance_objectives(s, player_side="axis"))
+    s.turn = 5
+    gave_back += sum(e["capital_delta"] for e in advance_objectives(s, player_side="axis"))
+
+    never = make_state(turn=5, objectives=[capture_obj(status="active")])
+    never_had_it = sum(e["capital_delta"] for e in advance_objectives(never, player_side="axis"))
+
+    reward = capture_obj()["reward"]
+    assert gave_back + reward < never_had_it   # net of the reward it briefly earned
 
 
 def test_capture_met_takes_priority_even_at_deadline():

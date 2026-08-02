@@ -15,9 +15,12 @@ Objective lifecycle:
 
 ``met`` is only final once the deadline has passed with the target still held:
 holding it *at the deadline* is what OKH asked for. Before then it is provisional,
-so an objective cannot be banked by touching the place for one week. Losing a
-target you did deliver on time is reported once, without cost - by then it is a
-supply problem, not a broken promise.
+so an objective cannot be banked by touching the place for one week. Either way,
+giving up ground you had taken costs ``LOST_GROUND_PENALTY`` on top - losing a
+place reads worse at OKH than never having reached it - so take-then-lose is
+strictly worse than never taking it. After the deadline the achievement itself
+still stands and the reward is never clawed back; only the smaller sting applies,
+charged once.
 
 The player's decision on a diversion (pending -> accepted | declined) is applied
 by the campaign, not here.
@@ -28,6 +31,10 @@ from __future__ import annotations
 from engine.state import GameState
 
 CLOSED = {"failed", "declined", "auto_declined"}
+# Extra sting for giving up ground you had already taken, on top of handing back
+# the reward. Losing a place you captured reads worse at OKH than never having
+# got there, so take-then-lose must cost more than never taking it.
+LOST_GROUND_PENALTY = 2
 
 
 def _issue_text(obj: dict) -> str:
@@ -68,19 +75,22 @@ def advance_objectives(state: GameState, player_side: str) -> list[dict]:
             if state.turn <= obj["deadline_turn"]:
                 # provisional: you have not delivered until the deadline
                 obj["status"] = "accepted" if obj["kind"] == "divert" else "active"
+                cost = obj["reward"] + LOST_GROUND_PENALTY
                 events.append({
-                    "id": obj["id"], "type": "reopened", "capital_delta": -obj["reward"],
+                    "id": obj["id"], "type": "reopened", "capital_delta": -cost,
                     "text": f"{obj['title']} — the objective has been lost again. OKH "
-                            f"withdraws its approval (-{obj['reward']} standing).",
+                            f"withdraws its approval and marks the ground given up "
+                            f"(-{cost} standing).",
                 })
             elif not obj.get("loss_reported"):
                 obj["loss_reported"] = True
                 events.append({
-                    "id": obj["id"], "type": "lost", "capital_delta": 0,
-                    "text": f"OKH notes with concern that "
+                    "id": obj["id"], "type": "lost",
+                    "capital_delta": -LOST_GROUND_PENALTY,
+                    "text": f"OKH notes with displeasure that "
                             f"{state.game_map.regions[obj['target']].name} has been lost "
-                            f"after being secured. The objective stands achieved, but "
-                            f"your rear is no longer your own.",
+                            f"after being secured. The objective stands achieved, but your "
+                            f"rear is no longer your own (-{LOST_GROUND_PENALTY} standing).",
                 })
             continue
 
