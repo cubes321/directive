@@ -367,6 +367,51 @@ def test_wastage_never_delivers_the_killing_blow():
     assert s.corps["ax1"].strength == DESTROYED_THRESHOLD
 
 
+def _lunge_state(supply):
+    # a -- b -- c -- d, all highway (cost 2). A panzer corps has 6 MP, so it can
+    # cross three regions in one bound. All friendly ground: an uncontested move.
+    return GameState.from_dict({
+        "map": {
+            "regions": [{"id": r, "name": r.title(), "terrain": "clear"}
+                        for r in ["a", "b", "c", "d"]],
+            "edges": [
+                {"between": ["a", "b"], "road": "highway", "rail": True},
+                {"between": ["b", "c"], "road": "highway", "rail": True},
+                {"between": ["c", "d"], "road": "highway", "rail": True},
+            ],
+        },
+        "corps": [{"id": "p1", "name": "P1", "side": "axis", "kind": "panzer",
+                   "location": "a", "commander": "guderian", "supply": supply}],
+        "control": {"a": "axis", "b": "axis", "c": "axis", "d": "axis"},
+        "supply_sources": {"axis": ["a"]},
+        "turn": 1, "seed": 1,
+    })
+
+
+def _wastage_for_move(supply, destination):
+    s = _lunge_state(supply)
+    s.corps["p1"].supply = supply          # survive the from_dict default
+    before = s.corps["p1"].strength
+    resolve_turn(s, orders(CorpsOrder("p1", "advance", destination)))
+    assert s.corps["p1"].location == destination, "the move did not happen"
+    return before - s.corps["p1"].strength
+
+
+def test_a_deep_lunge_costs_more_than_a_short_bound():
+    # Wastage was flat per turn: crossing three regions cost exactly what
+    # crossing one did, which is odd when the thesis is that the army wears out
+    # as it ADVANCES. Distance now tells.
+    one_hop = _wastage_for_move(20, "b")
+    three_hops = _wastage_for_move(20, "d")
+    assert three_hops > one_hop
+
+
+def test_lunging_inside_your_supply_is_still_free():
+    # The penalty scales the shortfall cost; with no shortfall there is nothing
+    # to scale. Racing ahead only hurts once you have outrun the railhead.
+    assert _wastage_for_move(100, "d") == 0
+
+
 def test_bounced_corps_pays_no_wastage():
     # Regression: a corps that failed to squeeze into a full region never
     # actually moved, so it must not be charged even if it is starving.

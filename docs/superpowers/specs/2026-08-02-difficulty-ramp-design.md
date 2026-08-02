@@ -167,6 +167,32 @@ Unit tests per rule:
 Then the honest check: re-run the scripted 24-turn trace and compare against
 today's baseline (Moscow falls turn 19, axis 1397 → 1358, 71 damage taken).
 
+## Amendments made during implementation
+
+Recorded here so the spec matches the code.
+
+1. **Wastage charges every move, not only uncontested ones.** The original text
+   said "movement only. A corps that fought but did not move is already paying
+   in combat losses" — but `report.movements` records only uncontested moves, so
+   a corps that fought its way forward paid nothing while one that walked into
+   empty ground paid. That made attacking the *cheaper* way to cross ground.
+   Charged set is now every corps whose location changed, measured against a
+   snapshot taken before reinforcements spawn.
+2. **Wastage is floored so it cannot kill.** It runs after the combat report is
+   written, so it could destroy a corps the report had already recorded as
+   retreating and alive — and `combat["outcome"]` has five readers. It now stops
+   at `DESTROYED_THRESHOLD`: wastage wears an army out, never finishes it.
+3. **A deep bound costs more than a short one.** `LUNGE_PENALTY` adds a third
+   again per region beyond the first. It scales the shortfall cost, so lunging
+   inside your own railhead is still free.
+4. **Blocked reinforcements spill rather than wait.** A corps whose depot is full
+   or overrun detrains at the nearest friendly region with room, within
+   `SPILL_RADIUS`. Previously it stayed pending forever with no report entry
+   anywhere — Siberian Group Lukin, the largest single Soviet counterweight, was
+   withheld for an entire campaign because Moscow was full on the turn it was
+   due, and nothing said so. Only a corps with nowhere at all to detrain waits,
+   and that is now reported.
+
 ## Tuning
 
 **The constants above are first guesses and are expected to be wrong.** The
