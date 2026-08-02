@@ -562,6 +562,18 @@ function renderOob() {
 
 /* ── battles ─────────────────────────────────────── */
 
+/* Once one side's power collapses the ratio stops being a ratio: the defence
+   falls to the divide-by-zero guard and "odds" becomes the attacker's raw
+   power. A real game printed 446.79 for four fresh corps overrunning two
+   remnants. Past these bounds the number carries no information, so say what
+   it means instead. The raw value stays in the turn telemetry. */
+const ODDS_OVERWHELMING = 20;
+function oddsLabel(o) {
+  if (o >= ODDS_OVERWHELMING) return "overwhelming odds";
+  if (o <= 1 / ODDS_OVERWHELMING) return "hopeless odds";
+  return `odds ${o}`;
+}
+
 function renderBattles() {
   const page = $("#tab-battles");
   page.textContent = "";
@@ -590,7 +602,7 @@ function renderBattles() {
     where.textContent = regionName[c.region] || c.region;
     div.appendChild(where);
     div.appendChild(document.createTextNode(
-      ` — ${c.attackers.join(", ")} attacked ${c.defenders.join(", ")} at odds ${c.odds}. ` +
+      ` — ${c.attackers.join(", ")} attacked ${c.defenders.join(", ")} at ${oddsLabel(c.odds)}. ` +
       (won ? (c.encircled ? "Defenders encircled and destroyed." : "Position carried; defenders thrown back.")
            : pocket ? "Defenders encircled with no line of retreat; the pocket is holding but being reduced."
            : "Assault repulsed.") +
