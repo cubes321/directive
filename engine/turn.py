@@ -53,6 +53,20 @@ REST_ORG_RECOVERY = 10
 # which is the historical trade.
 POCKET_LOSS = 34
 
+# Marching wears an army out even where nobody is shooting: breakdowns,
+# straggling, sick horses, boots. Staying inside your railhead costs nothing;
+# every step of supply shortfall costs, and the weather multiplies it. This is
+# what makes the campaign harder as it gets further from the rail net, rather
+# than harder on a date in the calendar.
+WASTAGE_SUPPLY_STEP = 25
+WASTAGE_WEATHER = {"clear": 1.0, "mud": 2.0, "snow": 2.5}
+
+
+def march_wastage(corps: Corps, weather: str) -> int:
+    """Strength a marching corps loses to non-combat wastage this turn."""
+    shortfall = max(0, 100 - corps.supply)
+    return round(shortfall / WASTAGE_SUPPLY_STEP * WASTAGE_WEATHER.get(weather, 1.0))
+
 
 @dataclass
 class TurnReport:
@@ -230,6 +244,20 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
             corps.recover(organization=RESERVE_ORG_RECOVERY, strength=RESERVE_STR_RECOVERY)
         else:
             corps.recover(organization=REST_ORG_RECOVERY)
+
+    # 3b. Marching wastage. Reinforcements that just arrived have not marched,
+    # and a bounced corps went nowhere, so neither pays.
+    marched = {
+        m["corps"] for m in report.movements
+        if not m.get("bounced") and not m.get("arrived")
+    }
+    for corps_id in sorted(marched):
+        corps = state.corps.get(corps_id)
+        if corps is None or corps.is_destroyed:
+            continue
+        loss = march_wastage(corps, state.weather)
+        if loss:
+            corps.take_losses(strength=loss, organization=loss * 2)
 
     # 4. Supply tick, per side: advance the railhead, then trace supply over it
     living = state.living_corps()

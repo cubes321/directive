@@ -4,9 +4,10 @@ from engine.turn import _distribute_losses, resolve_turn
 from engine.units import Corps
 
 
-def _corps(cid, strength=100, organization=100):
+def _corps(cid, strength=100, organization=100, supply=100):
     return Corps(id=cid, name=cid.upper(), side="axis", kind="infantry",
-                 location="x", commander="c", strength=strength, organization=organization)
+                 location="x", commander="c", strength=strength,
+                 organization=organization, supply=supply)
 
 
 def test_distribute_losses_never_wastes_points_on_destroyed_corps():
@@ -262,3 +263,45 @@ def test_resolution_is_deterministic():
         return s.to_dict()
 
     assert play() == play()
+
+
+def test_marching_inside_your_supply_costs_nothing():
+    from engine.turn import march_wastage
+    c = _corps("c")           # supply defaults to 100
+    assert march_wastage(c, "clear") == 0
+
+
+def test_wastage_grows_with_the_supply_shortfall():
+    from engine.turn import march_wastage
+    assert march_wastage(_corps("a", supply=75), "clear") == 1
+    assert march_wastage(_corps("b", supply=20), "clear") == 3
+    assert march_wastage(_corps("c", supply=0), "clear") == 4
+
+
+def test_wastage_is_worse_in_mud_and_snow():
+    from engine.turn import march_wastage
+    outrun = dict(supply=20)
+    assert march_wastage(_corps("a", **outrun), "mud") == 6
+    assert march_wastage(_corps("b", **outrun), "snow") == 8
+
+
+def test_a_corps_that_marched_past_its_railhead_bleeds():
+    data = state_data()
+    data["corps"][0]["supply"] = 20
+    data["control"]["center"] = "axis"     # empty friendly ground: an uncontested move
+    s = GameState.from_dict(data)
+    before = s.corps["ax1"].strength
+    resolve_turn(s, orders(CorpsOrder("ax1", "advance", "center")))
+    assert s.corps["ax1"].strength < before
+    assert s.corps["ax1"].damage_taken > 0   # and it lowers the ceiling
+
+
+def test_a_corps_that_stayed_put_does_not_waste_away():
+    # The cost of standing still is the ground you are not taking, not blood.
+    # This is also what keeps a contained pocket alive.
+    data = state_data()
+    s = GameState.from_dict(data)
+    s.corps["ax1"].supply = 0
+    before = s.corps["ax1"].strength
+    resolve_turn(s, orders(CorpsOrder("ax1", "defend", None)))
+    assert s.corps["ax1"].strength == before
