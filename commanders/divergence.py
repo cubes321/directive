@@ -21,6 +21,11 @@ on real logs) and are deliberately kept out:
 - **an objective out of reach.** That order is rejected and forced to `defend`;
   it is a model failure, already reported by analyze_logs.py, and lands in
   `unscored` (`parse_in_range`).
+- **an order the engine would not accept at all** - a move with no objective,
+  or a posture outside `POSTURES`. `validate_orders` rejects both
+  (`engine/orders.py:85` and `:92`) and `salvage_orders` forces them to
+  `defend`. "Advance, objective null" was qwen3.5-4b's dominant first-attempt
+  failure shape, and it was the metric's strongest praise (`_engine_would_reject`).
 
 Pure functions only - strings and dicts in, counts out. The file IO lives in
 analyze_divergence.py.
@@ -32,6 +37,8 @@ import json
 import re
 from collections import Counter
 from collections.abc import Iterable
+
+from engine.orders import POSTURES  # the postures the engine will actually accept
 
 Option = tuple[str, str | None]  # (posture, objective region id)
 
@@ -124,7 +131,7 @@ def parse_in_range(briefing: str) -> dict[str, set[str]]:
     return ranges
 
 
-def _move_class(posture) -> str:
+def _move_class(posture: str) -> str:
     """attack and advance are ONE order to the engine: engine/turn.py:138 is the
     only place either posture is read, and it reads them jointly. Scoring them
     apart let a model that always took staff option #1 while writing the other
@@ -144,6 +151,22 @@ def _objective_of(order: dict) -> str | None:
     return objective
 
 
+def _engine_would_reject(posture, objective: str | None) -> bool:
+    """Orders `validate_orders` refuses outright, whatever the staff offered.
+
+    Both shapes match no staff option (the staff only ever proposes a legal
+    posture, and every move option it proposes names a region), so both used to
+    fall through to `off-menu` - the bucket meaning "a legal, reachable
+    objective the staff did not list". They are neither legal nor an objective:
+    salvage_orders replaces them with `defend`. "Advance, objective null" was
+    qwen3.5-4b's most common first-attempt failure and made up 37% of that
+    run's off-menu bucket.
+    """
+    if posture not in POSTURES:                     # engine/orders.py:84
+        return True
+    return _move_class(posture) == "move" and objective is None   # engine/orders.py:92
+
+
 def bucket_for(order: dict, options: list[Option], in_range: set[str] | None = None) -> str:
     """Which bucket this order falls in, given the options that corps was
     offered and (optionally) the regions it can legally reach. See BUCKETS;
@@ -154,11 +177,16 @@ def bucket_for(order: dict, options: list[Option], in_range: set[str] | None = N
     is inaction is not a sign of a commander thinking for himself.
 
     `off-menu` means one thing only: a legal, reachable objective the staff did
-    not list. Everything below exists to keep the three impostors out of it -
-    see the module docstring.
+    not list. Everything below exists to keep the impostors out of it - see the
+    module docstring.
     """
     posture = order.get("posture")
     objective = _objective_of(order)
+    # Checked before anything else, and before the range test in particular: a
+    # move with no objective is illegal on its own, whether or not the briefing
+    # told us what was in range.
+    if _engine_would_reject(posture, objective):
+        return UNSCORED
     # Inaction is inaction, whichever word the order used and whatever stray
     # objective it carried (the engine reads `objective` only for attack and
     # advance). Observed: sov_13a, sitting in Minsk, ordered "defend / minsk".

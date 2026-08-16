@@ -194,6 +194,41 @@ def test_an_offered_option_is_never_second_guessed_against_the_range():
     assert bucket_for(_order("attack", "minsk"), [ATTACK, ADVANCE, HOLD], set()) == "first"
 
 
+def test_a_move_order_with_no_objective_is_unscored_not_off_menu():
+    # engine/orders.py:92-95 rejects "posture 'advance' needs an objective" and
+    # salvage_orders forces it to 'defend'. It is a model failure, and it was
+    # the dominant first-attempt failure shape of qwen3.5-4b - scored off-menu
+    # it became the metric's strongest praise for its worst output.
+    assert bucket_for(_order("advance", None), [ATTACK, ADVANCE, HOLD], IN_RANGE) == "unscored"
+    assert bucket_for(_order("attack", None), [ATTACK, ADVANCE, HOLD], IN_RANGE) == "unscored"
+
+
+def test_a_move_order_with_no_objective_is_unscored_even_with_no_range_known():
+    # The check must precede the range test: an absent "In range" line means
+    # legality is unjudged, but a missing objective is illegal on its own.
+    assert bucket_for(_order("advance", None), [ATTACK, ADVANCE, HOLD], None) == "unscored"
+
+
+def test_a_move_order_with_a_blank_objective_string_is_unscored():
+    # The engine normalizes "  " to None (engine/orders.py:67) and then rejects
+    # it, so this is the same failure wearing whitespace.
+    assert bucket_for(_order("advance", "  "), [ATTACK, ADVANCE, HOLD], IN_RANGE) == "unscored"
+
+
+def test_a_posture_the_engine_does_not_know_is_unscored():
+    # 'hold' is not in engine/orders.py:POSTURES; validate_orders rejects it at
+    # line 85. It matches no option and carries no objective, so it used to fall
+    # through to off-menu - the same leak as the missing objective.
+    assert bucket_for(_order("hold"), [ATTACK, ADVANCE, HOLD], IN_RANGE) == "unscored"
+    assert bucket_for(_order("hold"), [ATTACK, ADVANCE, HOLD], None) == "unscored"
+
+
+def test_a_missing_posture_value_is_unscored():
+    # {"posture": None} reaches bucket_for (the "posture" key IS present, so
+    # score_transcript does not filter it out).
+    assert bucket_for({"corps_id": "x", "posture": None}, [ATTACK, ADVANCE, HOLD]) == "unscored"
+
+
 def _transcript(state, commander, attempts=None, final_orders=None):
     briefing = build_briefing(state, commander)
     out = {
@@ -353,6 +388,22 @@ def test_an_order_out_of_reach_is_unscored_rather_than_off_menu():
     state = load_scenario(DATA_DIR)
     reply = _json.dumps({"orders": [
         {"corps_id": "xxiv_pz", "posture": "advance", "objective": "moscow"},
+        {"corps_id": "xlvi_pz", "posture": "advance", "objective": "pripyat"},
+        {"corps_id": "xlvii_pz", "posture": "defend", "objective": None},
+    ]})
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": reply}])
+    )
+    assert buckets == Counter({"middle": 1, "hold": 1})
+    assert unscored == 1
+
+
+def test_an_advance_with_no_objective_is_unscored_rather_than_off_menu():
+    # Observed six times in logs/run-20260816-164524 (qwen3.5-4b): the model's
+    # dominant first-attempt failure shape, and it was scoring as independence.
+    state = load_scenario(DATA_DIR)
+    reply = _json.dumps({"orders": [
+        {"corps_id": "xxiv_pz", "posture": "advance", "objective": None},
         {"corps_id": "xlvi_pz", "posture": "advance", "objective": "pripyat"},
         {"corps_id": "xlvii_pz", "posture": "defend", "objective": None},
     ]})
