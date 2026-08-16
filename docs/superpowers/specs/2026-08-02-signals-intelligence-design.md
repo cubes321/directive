@@ -1,6 +1,6 @@
 # Signals intelligence: intercepted enemy orders
 
-**Status: PROPOSED — design presented, not yet approved. Two open questions at the end.**
+**Status: PROPOSED — one open question left (frequency); the delivery model is settled.**
 **Date:** 2026-08-02
 
 ## The idea
@@ -11,7 +11,8 @@ dispatch fragments as intel)".
 
 ## Decisions taken
 
-Both were chosen explicitly during brainstorming.
+The first two were chosen during brainstorming on 2026-08-02; the third settled
+open question 1 on 2026-08-16.
 
 1. **What it reveals: enemy intent — their actual orders.** Not sharpened
    strength figures, and not dispositions beyond recon range. An intercept
@@ -24,8 +25,20 @@ Both were chosen explicitly during brainstorming.
    orders are actually issued; it is self-limiting (he is one of four); and it
    reads like a decrypt rather than a hint.
 
+3. **The player distributes his own side's intelligence; the AI side
+   broadcasts.** A decrypt his side makes lands in his inbox and reaches no
+   commander until he signals one. The Soviet side puts it in every Soviet
+   briefing, because there is no player there to distribute it. The asymmetry is
+   deliberate: it keeps intelligence inside the loop the game is actually about
+   — the player deciding what his subordinates know — and it costs no new
+   briefing plumbing on the player's side, since relaying rides the existing
+   conversation channel.
+
 Rejected: unreliable or partial intelligence. The drama should come from acting
-on a true decrypt, not from second-guessing it.
+on a true decrypt, not from second-guessing it. Also rejected for decision 3:
+broadcasting into every friendly briefing (removes the player's judgment), and
+delivering only to the commander facing that sector (one cautious general can
+swallow a whole campaign's worth of intercepts).
 
 ## The constraint that shapes everything
 
@@ -68,11 +81,27 @@ Determinism: seed as `communique.py` does, and sort before any weighted choice.
 
 ### 3. Delivery — both sides, fog-safe
 
-- **Into the briefing** of every commander on the receiving side, as a
-  `SIGNALS INTELLIGENCE` block alongside `ENEMY CONTACTS`. This is what lets an
-  LLM commander act on it.
+- **Asymmetric by design, because only one side has a player** (decided
+  2026-08-16, see Decisions taken).
+  - *The player's side:* the decrypt goes to his **inbox only**. It reaches a
+    commander's briefing when the player relays it, through the existing
+    conversation channel — `Campaign.converse` writes into the commander's
+    thread and `build_briefing` already renders it under `RECENT EXCHANGES WITH
+    YOUR COMMANDER-IN-CHIEF`. No new briefing plumbing on this path.
+  - *The Soviet side:* into the `SIGNALS INTELLIGENCE` block of **every**
+    Soviet commander's briefing, alongside `ENEMY CONTACTS`. There is no player
+    there to distribute it, so broadcast is the only rule that lets the AI side
+    act on intelligence at all.
 - **Into the player's inbox** as a dispatch from `"intel"`, styled like the
   `staff` and `okh` cards, when his own side intercepted.
+- **The card must say, in its own text, that the commanders have not been told.**
+  A player who assumes the decrypt was distributed will watch his commanders
+  ignore it and read that as the LLM being stupid, when in fact nobody informed
+  them — the worst kind of confusion, because it discredits the commanders for
+  the player's own omission. One closing line on the card carries it, e.g.
+  *"This decrypt has not been circulated. Signal a commander if you want him to
+  act on it."* It is prose on the card, not a rule the engine enforces, in
+  keeping with "briefings advise, the engine enforces".
 - **The Soviet intercept never reaches the player.** It enters Soviet briefings
   only. The snapshot already filters dispatches by side, so this follows the
   existing fog discipline rather than inventing a new rule.
@@ -104,18 +133,37 @@ without touching code.
 - `last_orders` round-trips through a save, and a save predating it loads
 - **fog: a Soviet intercept never appears in the player's snapshot**
 - the briefing block renders region names with ids
+- **an axis intercept reaches the player's inbox and NO axis briefing** — the
+  asymmetry of decision 3, and the one most likely to be quietly "fixed" back
+  into a broadcast by a later change
+- a soviet intercept reaches every soviet briefing
+- the player's intel card states that the decrypt has not been circulated
 
-## Open questions — answer these before implementing
+## Open questions
 
-1. **Who on the receiving side sees the decrypt?** The design says every
-   commander on that side, as an army-group-level intelligence product. The
-   alternative is only the commander facing that sector, which is more
-   plausible but much narrower and may waste most intercepts.
+1. ~~**Who on the receiving side sees the decrypt?**~~ **Settled 2026-08-16:
+   the player decides on his own side; the AI side broadcasts.** An intercept
+   his side makes reaches his inbox and goes no further until he signals a
+   commander himself. Rejected: broadcasting into every friendly briefing, which
+   takes the player's judgment out of a game whose premise is that he commands
+   by directive; and delivering only to the commander facing that sector, which
+   with roughly six intercepts a campaign can be swallowed whole by one cautious
+   general. The Soviet side broadcasts because there is no player there to
+   distribute it — the asymmetry is the point, not an inconsistency.
+
+   Consequence: **the inbox card must state that the commanders have not been
+   told** (see Delivery). Without that line the feature reads as broken.
+
 2. **Is 0.25 per side per turn "occasional" enough?** Over a 24-turn campaign
-   that is roughly six intercepts each way.
+   that is roughly six intercepts each way. Note that decision 1 raises the cost
+   of each one: an intercept the player does not relay does nothing, and
+   relaying spends a conversation turn. That argues for keeping the rate low —
+   a decrypt should feel like a prize, not an inbox chore — but it is worth
+   re-checking against real play before fixing the number.
 
 ## Next step
 
-Once those are answered: finish the brainstorming flow (this spec is the
-design-document step), then `superpowers:writing-plans` for the implementation
-plan. Do not start implementing before the two questions above are settled.
+Delivery is settled; only the frequency number is open, and it is a tuning
+constant (`Campaign.intel_chance`) rather than a design fork — it can ship at
+0.25 and be adjusted after play. So this spec is ready for
+`superpowers:writing-plans`.
