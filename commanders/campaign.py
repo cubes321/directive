@@ -172,7 +172,13 @@ class Campaign:
         # side's intelligence himself (inbox only, and he signals whoever he
         # wants), while the AI side has no player to do that, so its decrypt
         # goes straight into every briefing on that side.
+        # The player's card is BUILT here (off the pre-resolution state, and
+        # stamped with this turn's number) but POSTED further down, after the
+        # staff report: web/app.js reverses the week's dispatches, so a card
+        # appended here would render underneath all nine commanders and be
+        # missed - and a decrypt the player never sees is one he never relays.
         self.state.intel = {}
+        intel_dispatch: dict | None = None
         intel_rng = random.Random(self.state.seed * 6151 + self.state.turn)
         for side in ("axis", "soviet"):  # fixed order: determinism
             hit = intercept(
@@ -182,7 +188,7 @@ class Campaign:
                 continue
             if side == self.player_side:
                 body = "\n".join(format_intel_lines(self.state, hit))
-                self.state.dispatches.append({
+                intel_dispatch = {
                     "turn": self.state.turn,
                     "commander": "intel",
                     "side": side,
@@ -192,7 +198,7 @@ class Campaign:
                         "This decrypt has not been circulated. Signal a commander "
                         "if you want him to act on it."
                     ),
-                })
+                }
             else:
                 self.state.intel[side] = hit
 
@@ -230,6 +236,10 @@ class Campaign:
         }
         self.state.dispatches.append(staff_dispatch)
         dispatches.append(staff_dispatch)
+
+        if intel_dispatch is not None:  # posted late so it renders near the top
+            self.state.dispatches.append(intel_dispatch)
+            dispatches.append(intel_dispatch)
 
         okh_events = advance_objectives(self.state, self.player_side)
         for event in okh_events:

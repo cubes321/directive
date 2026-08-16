@@ -446,6 +446,30 @@ async def test_the_intel_card_says_it_has_not_been_circulated():
     assert "not been circulated" in card["text"]
 
 
+async def test_the_intel_card_is_carried_on_the_turn_result_too():
+    # play_campaign.py prints result.dispatches. A decrypt appended only to
+    # state.dispatches is invisible to the headless runner used to tune this
+    # very feature, exactly as staff and okh would be if they were left out.
+    campaign = _campaign_with_enemy_traffic("pavlov", "sov_3a")
+    result = await campaign.play_turn({})
+    cards = [d for d in result.dispatches if d["commander"] == "intel"]
+    assert len(cards) == 1
+    assert cards[0]["turn"] == result.report.turn
+
+
+async def test_the_intel_card_renders_above_the_weeks_commander_traffic():
+    # web/app.js reverses snap.dispatches, so within a week the LAST card
+    # appended renders FIRST. Appended before the commander dispatches, the
+    # rarest card in the inbox sank underneath all nine of them plus the staff
+    # report - and a decrypt the player never notices is a decrypt he never
+    # relays, which he then reads as his commanders being stupid.
+    campaign = _campaign_with_enemy_traffic("pavlov", "sov_3a")
+    await campaign.play_turn({})
+    ids = [d["commander"] for d in campaign.state.dispatches]
+    assert ids.index("intel") > ids.index("staff")
+    assert ids.index("intel") > ids.index("pavlov")
+
+
 async def test_no_intercept_at_zero_chance():
     campaign = _campaign_with_enemy_traffic("pavlov", "sov_3a")
     campaign.intel_chance = 0.0
