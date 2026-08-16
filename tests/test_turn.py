@@ -477,3 +477,25 @@ def test_resolve_turn_records_the_orders_it_acted_on():
     resolve_turn(state, orders)
     assert state.last_orders["guderian"]["orders"][0]["posture"] == "defend"
     assert state.last_orders["guderian"]["dispatch"] == "Holding."
+
+
+def test_last_orders_holds_only_the_most_recent_turn():
+    # It is REPLACED, never accumulated. Switching this to .update() would grow
+    # the save without bound and leave a destroyed commander's week-old traffic
+    # interceptable forever - a decrypt is of LAST week, not of any week.
+    state = load_scenario(DATA_DIR)
+    resolve_turn(state, {
+        "guderian": CommanderOrders(
+            commander="guderian",
+            orders=[CorpsOrder(corps_id="xxiv_pz", posture="defend", objective=None)],
+            dispatch="Holding.",
+        )
+    })
+    resolve_turn(state, {
+        "hoth": CommanderOrders(
+            commander="hoth",
+            orders=[CorpsOrder(corps_id="xxxix_pz", posture="defend", objective=None)],
+            dispatch="Holding.",
+        )
+    })
+    assert set(state.last_orders) == {"hoth"}
