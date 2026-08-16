@@ -58,7 +58,9 @@ The originally-scoped metric is recoverable: divergence = 100% − `first`.
    (`engine/orders.py:salvage_orders`). Scoring the final validated set would
    count engine repairs as the model collapsing into passivity — precisely the
    false positive this metric exists to avoid. Most orders are clean on the
-   first try (80–97% depending on model), so the fallback is the common path.
+   first try (80–97% depending on model), so the first-attempt path is the
+   common one; the fallback to final orders only covers transcripts that have
+   no `attempts` key at all.
 3. **The briefing scored against is the original one** — `messages[1]` — never
    the repair message, which quotes validation errors rather than options.
 
@@ -175,3 +177,24 @@ TDD, against the mocked-transport-free pure functions:
 ## Next step
 
 `superpowers:writing-plans` for the implementation plan.
+
+## Baseline (measured 2026-08-16)
+
+Measured by running `analyze_divergence.py` against the three same-day runs.
+Sample size: 36 commander-turns per run (9 commanders × 4 turns each); the
+`n` column below is the total corps-orders scored from those 36 transcripts,
+which differs slightly by run because commanders command varying numbers of
+corps. Per-commander rows (not reproduced here) rest on roughly a dozen
+orders each and are indicative rather than settled — treat only the `ALL`
+row as a run-level signal.
+
+| run | model | n | first | middle | hold | off-menu | unscored |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `run-20260816-164524` | qwen3.5-4b | 113 | 22% | 8% | 32% | 38% | 8 |
+| `run-20260816-165131` | qwen/qwen3.5-9b | 120 | 33% | 9% | 12% | 45% | 0 |
+| `run-20260816-170643` | qwen/qwen3.5-9b (post addressee fix) | 119 | 34% | 12% | 13% | 40% | 0 |
+
+The 4b run is the only one of the three with non-zero `unscored` (8, spread
+across `hoth`, `kluge`, and `strauss`) — its first attempts failed to parse
+or targeted corps with no briefed options more often than either 9b run,
+both of which scored `unscored: 0`.
