@@ -16,3 +16,6 @@ config.toml
 # reviews); the specs and plans we keep live under docs/superpowers/
 bug report*.txt
 docs/design-review-*.md
+
+# parked backend configs (config - kimi.toml etc); they hold live API keys
+config - *.toml
