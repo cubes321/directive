@@ -206,6 +206,7 @@ it reads the file when it builds the client.
 | `print_briefing.py guderian` | show exactly what a commander sees |
 | `analyze_logs.py` | tally LLM outcomes and failure reasons for the latest run (pass a name to target another, e.g. `eval_guderian`) |
 | `analyze_failures.py` | per-commander outcome breakdown and empty-response counts for the latest run |
+| `analyze_divergence.py` | staff-option divergence per commander — catches a model collapsing into "always take suggestion #1", or into never moving (pass a run dir, e.g. `run-20260816-170643/campaign`) |
 | `probe_concurrency.py` | measure your backend's latency under load (sequential vs gated) |
 | `verify_turn.py` | run one full live turn and report per-commander outcomes |
 
