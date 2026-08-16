@@ -27,7 +27,11 @@ class GameState:
     seed: int = 0
     weather: str = "clear"
     directives: dict[str, str] = field(default_factory=dict)  # commander -> text
-    dispatches: list[dict] = field(default_factory=list)  # {turn, commander, text}
+    # {turn, commander, text}, plus "side" on a signals-intelligence card
+    # (commander == "intel"): a decrypt has no dossier to be fogged by, so the
+    # snapshot filter in server/app.py keys off "side" to keep one side's
+    # intelligence out of the other side's inbox.
+    dispatches: list[dict] = field(default_factory=list)
     reinforcements: list[dict] = field(default_factory=list)  # {turn, corps: {...}}
     conversations: dict[str, list[dict]] = field(default_factory=dict)
     # commander -> [{turn, role: player|commander, text}]
