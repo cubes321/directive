@@ -1,6 +1,6 @@
 # Signals intelligence: intercepted enemy orders
 
-**Status: PROPOSED — one open question left (frequency); the delivery model is settled.**
+**Status: IMPLEMENTED 2026-08-16.** Plan: `docs/superpowers/plans/2026-08-16-signals-intelligence.md`.
 **Date:** 2026-08-02
 
 ## The idea
@@ -69,8 +69,12 @@ orders for nine commanders is a small addition to the save.
 Mirrors `commanders/communique.py`: pure, seeded, deterministic, no LLM call.
 
 ```python
-def intercept(state, side, rng, *, chance) -> dict | None
+def intercept(state, dossiers, side, rng, *, chance) -> dict | None
 ```
+
+(`dossiers` was added during implementation: the decrypt must carry the enemy
+commander's name and role, and `build_briefing(state, commander)` has no access
+to dossiers, so they are captured at selection time.)
 
 One roll per side per turn. On success, pick an enemy commander who actually
 issued orders last turn, **weighted toward commanders whose corps are in contact
@@ -154,12 +158,18 @@ without touching code.
    Consequence: **the inbox card must state that the commanders have not been
    told** (see Delivery). Without that line the feature reads as broken.
 
-2. **Is 0.25 per side per turn "occasional" enough?** Over a 24-turn campaign
-   that is roughly six intercepts each way. Note that decision 1 raises the cost
-   of each one: an intercept the player does not relay does nothing, and
-   relaying spends a conversation turn. That argues for keeping the rate low —
-   a decrypt should feel like a prize, not an inbox chore — but it is worth
-   re-checking against real play before fixing the number.
+2. ~~**Is 0.25 per side per turn "occasional" enough?**~~ **Settled 2026-08-16:
+   yes, keep 0.25.** Measured over a 5-turn live run on qwen/qwen3.5-9b: one
+   axis decrypt, which is exactly the expectation. Decision 1 raises the cost of
+   each intercept — one the player does not relay does nothing, and relaying
+   spends a conversation turn — so a low rate is right: a decrypt should feel
+   like a prize, not an inbox chore. `Campaign.intel_chance` remains tunable
+   without touching code if play says otherwise.
+
+   **Note the real rate is slightly below the nominal one: turn 1 can never
+   produce an intercept**, because `last_orders` is empty until a turn has
+   resolved. Over a 24-turn campaign that is 23 eligible turns, so roughly
+   5-6 decrypts each way rather than 6.
 
 ## Next step
 

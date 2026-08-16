@@ -26,6 +26,10 @@ never moved a battalion. He wrote directives and read dispatches. So do you.
 - **Unprompted communiqués.** A notable week may prompt a commander to reach out
   first — a warning, boast, or plea — as a pop-up you can answer.
 - **Chief-of-staff report** opening each week's inbox with a dry assessment.
+- **Signals intelligence.** Now and then your Horchdienst decrypts an enemy
+  commander's orders from last week — exact, not estimated. It arrives on your
+  desk and nowhere else: your commanders know nothing about it until you signal
+  one of them. The Soviets get the same, and they *do* share it around.
 - **Personnel command.** Hire, relieve, and replace commanders at a cost in
   standing with OKH.
 - **OKH objectives & a survival clock.** Timed demands (take Minsk by week 4,
