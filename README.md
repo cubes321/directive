@@ -181,6 +181,49 @@ validate→repair→salvage net catches it, but you'll see more *"no new orders
 received"* from that commander — run `analyze_logs.py campaign` to check a
 model's ok/salvaged/fallback rates before trusting it with a flank.
 
+### Reasoning, and turn time
+
+**Turning the model's reasoning off is the single biggest lever on turn time** —
+bigger than model size. Every backend spells it differently, and the setting is
+passed through verbatim, so a knob aimed at the wrong backend is *silently
+dropped*: it looks configured and does nothing.
+
+| Backend | What to put in `config.toml` |
+| --- | --- |
+| LM Studio | `[llm.params]` with `reasoning_effort = "none"` |
+| Moonshot / Kimi K2 | `[llm.params.thinking]` with `type = "disabled"` (then `temperature = 0.6`) |
+| Non-reasoning models | omit the table entirely |
+
+Do **not** try to disable reasoning by putting `/no_think` in a prompt. On a
+build without that control token the model reasons about the instruction
+instead: measured at 30× *worse* than leaving it alone.
+
+Measured on one machine, 4-turn campaigns, nine commanders plus the staff
+report:
+
+| Model | Turn time | First-try valid orders |
+| --- | --- | --- |
+| `qwen3.5-4b`, reasoning on | ~205 s | 78% |
+| `qwen3.5-4b`, reasoning off | ~32 s | 81% |
+| `qwen/qwen3.5-9b`, reasoning off | **~30 s** | **97%** |
+| `kimi-k2.6` (hosted), thinking off | ~45 s | 97% |
+
+A 9B local model is the sweet spot: faster than the hosted call, free, and level
+with it on order validity. Note that a *bigger* local model was also *faster*
+here, because it retries less and writes tighter — token count drives turn time,
+not parameter count.
+
+Two caveats worth knowing:
+
+- **The first turn against a cold model is slower and worse.** LM Studio loads a
+  model on first use, and a request landing mid-load returns empty content while
+  still billing tokens. The game issues a warm-up call before each turn's
+  fan-out to absorb this; if you see turn 1 produce far more repaired orders than
+  later turns, that is the cause.
+- **Order validity is not personality.** A small model can keep every schema
+  check green while quietly collapsing into "always take the staff's first
+  suggestion" or "never move". Run `analyze_divergence.py` to check.
+
 ### Overrides
 
 Environment variables beat the file, useful for one-off runs and scripts:

@@ -18,6 +18,20 @@ Tests are TDD-first and run against a mocked transport — the engine is
 deterministic (seeded RNG), so the suite needs no live LLM. Add a failing test
 before implementing; keep `ruff check` green.
 
+Offline analysis of a finished run (free, no LLM calls — all default to the
+newest `logs/run-*`):
+
+```powershell
+.\.venv\Scripts\python.exe analyze_logs.py          # ok / repaired / salvaged / fallback
+.\.venv\Scripts\python.exe analyze_divergence.py    # is the model still playing a character?
+.\.venv\Scripts\python.exe replay_campaign.py       # what would a rules change have done?
+```
+
+**`server/saves/campaign.json` is a live game.** `play_campaign.py` saves over it
+after every turn, so a headless playtest silently eats it — build the `Campaign`
+yourself and save to a scratch path instead. Hash the save before and after and
+say so when reporting.
+
 ## The one hard boundary
 
 `engine/` is **pure**: rules, map, combat, supply, WEGO turns. Zero LLM or
@@ -77,8 +91,33 @@ outside (e.g. telemetry), the engine *builds the data* and a caller *writes it*
 - **Fog discipline in the UI.** Only ever surface the player's own side; the
   snapshot is already fog-filtered, and views (e.g. the movements tab) must
   filter to own corps.
+- **An unfilled slot in a prompt is not neutral — it gets the statistically
+  dominant filler.** The order prompt asked for "your report to the theater
+  commander" and named nobody, so the model invented a salutation each turn:
+  the Red Army side converged on "Comrade <rank>" (over-determined for 1941)
+  while the German side, having no anchor at all, scattered over nine forms and
+  twice landed on "Comrade Field Marshal". Both sides also reported past the
+  player to the head of state. `prompts.py:_addressee_block` names the recipient;
+  when you add a field to a prompt, say who or what fills it.
+- **Never let a metric's good news absorb its bad news.** `off-menu` in
+  `commanders/divergence.py` was meant to mean "the commander chose an objective
+  his staff never raised" — the strongest evidence of independence. It silently
+  also counted `advance` where the staff said `attack` (the engine treats those
+  as one order, `turn.py:138`), `defend` where the staff offered `reserve` (the
+  same inaction), and objectives the engine rejects outright. 44-77% of the
+  bucket was model *failure* scored as brilliance, and one commander published
+  at 62% off-menu was really 100% hold. When a bucket is the answer you're
+  hoping for, enumerate what else can land in it.
+- **Measure what the model chose, not what the engine salvaged.** Scoring the
+  validated order set counts a repair as the model going passive — the exact
+  false positive an instrument like this exists to avoid. Score
+  `attempts[0]`, fall back only when there is no raw attempt.
 - **Protect emergent personality.** LLM commanders arguing, lunging, or bending
   orders is the product's core value — don't tune it away when adjusting prompts.
+  Note that *voice* and *decisions* fail separately: on `kimi-k2.6` commanders
+  quote an intercept and reason about it beautifully while still taking the
+  staff's option #1. Before crediting a model with acting on new information,
+  check whether `_staff_options` already suggested that move.
 
 ## Conventions
 
