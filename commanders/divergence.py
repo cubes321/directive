@@ -7,6 +7,21 @@ taking staff option #1 every turn passes every schema check. This scores each
 order against the options that corps was offered, so that regression shows up
 as a number.
 
+`off-menu` is the metric's strongest positive signal and therefore the bucket
+worth defending. It means ONE thing: a legal, reachable objective the staff did
+not list. Three impostors were measured leaking into it (44-77% of the bucket
+on real logs) and are deliberately kept out:
+
+- **the other move verb.** attack and advance are one order to the engine, so
+  "advance to Minsk" against a staff "attack Minsk" is compliance, not
+  independence (`_move_class`).
+- **the other word for sitting still.** defend and reserve are the same
+  inaction, and which one the staff offers depends on the corps's own supply
+  (`_HOLD_POSTURES`).
+- **an objective out of reach.** That order is rejected and forced to `defend`;
+  it is a model failure, already reported by analyze_logs.py, and lands in
+  `unscored` (`parse_in_range`).
+
 Pure functions only - strings and dicts in, counts out. The file IO lives in
 analyze_divergence.py.
 """
@@ -21,9 +36,17 @@ from collections.abc import Iterable
 Option = tuple[str, str | None]  # (posture, objective region id)
 
 BUCKETS = ("first", "middle", "hold", "off-menu")
+UNSCORED = "unscored"  # not a bucket: "this order told us nothing"
+
+# defend and reserve are the same physical inaction - they differ only in how
+# much a corps recovers (engine/turn.py:268) - and which of the two the staff
+# offers is a pure function of the corps's own supply/organization
+# (commanders/briefing.py:110), not of the commander's independence.
+_HOLD_POSTURES = ("defend", "reserve")
 
 _CORPS_HEADER = re.compile(r"^For .+ \[([a-z0-9_]+)\]:$")
 _OPTION_LINE = re.compile(r"^  \* (.+)$")
+_IN_RANGE_LINE = re.compile(r"^  In range this week: (.*)$")
 _REGION_ID = re.compile(r"\[id: ([a-z0-9_]+)\]")
 
 # Prefix -> posture, mirroring commanders/briefing.py:_staff_options. "close up
@@ -53,40 +76,109 @@ def _option_from_text(text: str) -> Option:
     raise ValueError(f"unrecognized staff option: {text!r}")
 
 
-def parse_staff_options(briefing: str) -> dict[str, list[Option]]:
-    """corps id -> the options it was offered, in the order the briefing gave
-    them. Empty when the briefing has no STAFF OPTIONS section."""
+def _corps_blocks(briefing: str) -> list[tuple[str, list[str]]]:
+    """(corps id, the lines of its block) for each corps under STAFF OPTIONS."""
     if "STAFF OPTIONS" not in briefing:
-        return {}
-    options: dict[str, list[Option]] = {}
-    current: str | None = None
+        return []
+    blocks: list[tuple[str, list[str]]] = []
     for line in briefing.split("STAFF OPTIONS", 1)[1].splitlines():
         header = _CORPS_HEADER.match(line)
         if header:
-            current = header.group(1)
-            options[current] = []
-            continue
-        entry = _OPTION_LINE.match(line)
-        if entry and current is not None:
-            options[current].append(_option_from_text(entry.group(1)))
+            blocks.append((header.group(1), []))
+        elif blocks:
+            blocks[-1][1].append(line)
+    return blocks
+
+
+def parse_staff_options(briefing: str) -> dict[str, list[Option]]:
+    """corps id -> the options it was offered, in the order the briefing gave
+    them. Empty when the briefing has no STAFF OPTIONS section."""
+    options: dict[str, list[Option]] = {}
+    for corps_id, lines in _corps_blocks(briefing):
+        options[corps_id] = [
+            _option_from_text(entry.group(1))
+            for entry in (_OPTION_LINE.match(line) for line in lines)
+            if entry
+        ]
     return options
 
 
-def bucket_for(order: dict, options: list[Option]) -> str:
+def parse_in_range(briefing: str) -> dict[str, set[str]]:
+    """corps id -> the region ids it may legally be sent to this week.
+
+    Each corps block ends with "In range this week: ...", which is the legal
+    destination set `validate_orders` will enforce. Ids come from the
+    `[id: ...]` markers, so the "(FULL - no room)" annotation is ignored: a
+    full region is still a legal objective, the move merely bounces.
+
+    A corps whose block carries no such line is *absent* from the result - that
+    is "we cannot tell", not "nothing is legal", and must not void its orders.
+    """
+    ranges: dict[str, set[str]] = {}
+    for corps_id, lines in _corps_blocks(briefing):
+        for line in lines:
+            match = _IN_RANGE_LINE.match(line)
+            if match:
+                ranges[corps_id] = set(_REGION_ID.findall(match.group(1)))
+                break
+    return ranges
+
+
+def _move_class(posture) -> str:
+    """attack and advance are ONE order to the engine: engine/turn.py:138 is the
+    only place either posture is read, and it reads them jointly. Scoring them
+    apart let a model that always took staff option #1 while writing the other
+    verb read as 100% off-menu - the metric defeated by the collapse it exists
+    to detect."""
+    return "move" if posture in ("attack", "advance") else posture
+
+
+def _objective_of(order: dict) -> str | None:
+    """The order's objective, normalized exactly as the engine normalizes it
+    (`engine/orders.py:_corps_order_from_dict`): stray whitespace stripped and
+    a blank string read as None. Comparing raw strings here would penalise
+    qwen3.5-4b for the very quirk the engine already absorbs."""
+    objective = order.get("objective")
+    if isinstance(objective, str):
+        return objective.strip() or None
+    return objective
+
+
+def bucket_for(order: dict, options: list[Option], in_range: set[str] | None = None) -> str:
     """Which bucket this order falls in, given the options that corps was
-    offered. See BUCKETS.
+    offered and (optionally) the regions it can legally reach. See BUCKETS;
+    may also return UNSCORED.
 
     A one-entry list holding only the hold option makes index 0 both first and
     last; 'hold' wins, because taking the only offered option when that option
     is inaction is not a sign of a commander thinking for himself.
+
+    `off-menu` means one thing only: a legal, reachable objective the staff did
+    not list. Everything below exists to keep the three impostors out of it -
+    see the module docstring.
     """
-    chosen = (order["posture"], order.get("objective"))
-    if chosen not in options:
-        return "off-menu"
-    index = options.index(chosen)
-    if index == len(options) - 1 and chosen[0] in ("defend", "reserve"):
+    posture = order.get("posture")
+    objective = _objective_of(order)
+    # Inaction is inaction, whichever word the order used and whatever stray
+    # objective it carried (the engine reads `objective` only for attack and
+    # advance). Observed: sov_13a, sitting in Minsk, ordered "defend / minsk".
+    if posture in _HOLD_POSTURES and options and options[-1][0] in _HOLD_POSTURES:
         return "hold"
-    return "first" if index == 0 else "middle"
+    chosen = (_move_class(posture), objective)
+    for index, option in enumerate(options):
+        if (_move_class(option[0]), option[1]) != chosen:
+            continue
+        if index == len(options) - 1 and option[0] in _HOLD_POSTURES:
+            return "hold"
+        return "first" if index == 0 else "middle"
+    if in_range is not None and objective is not None and objective not in in_range:
+        # Not independence but a model failure: validate_orders rejects an
+        # unreachable objective and salvage_orders forces it to 'defend'. Order
+        # validity is analyze_logs.py's beat; here it says nothing about
+        # character. (An offered option is never re-checked - the staff only
+        # ever proposes regions it has already confirmed are in reach.)
+        return UNSCORED
+    return "off-menu"
 
 
 def _first_attempt_orders(transcript: dict) -> list[dict] | None:
@@ -98,20 +190,34 @@ def _first_attempt_orders(transcript: dict) -> list[dict] | None:
     """
     attempts = transcript.get("attempts")
     if not attempts:
-        return list(transcript["orders"]["orders"])
+        # "Cannot be read at all" covers the fallback too: a transcript with
+        # neither attempts nor a usable final order list tells us nothing.
+        try:
+            return list(transcript["orders"]["orders"])
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return None
     try:
+        # attempts[0] need not be a dict - a hand-edited or truncated log can
+        # put a bare string there, and .get would raise AttributeError.
         return list(json.loads(attempts[0].get("response") or "")["orders"])
-    except (ValueError, TypeError, KeyError):
+    except (ValueError, TypeError, KeyError, AttributeError):
         return None
+
+
+def _briefing_of(transcript: dict) -> str:
+    """The original briefing - never the repair message, which quotes
+    validation errors rather than options."""
+    return next(
+        (m["content"] for m in transcript["request"]["messages"] if m["role"] == "user"),
+        "",
+    )
 
 
 def score_transcript(transcript: dict) -> tuple[Counter, int]:
     """(bucket counts, unscored) for one commander-turn."""
-    briefing = next(
-        (m["content"] for m in transcript["request"]["messages"] if m["role"] == "user"),
-        "",
-    )
+    briefing = _briefing_of(transcript)
     options = parse_staff_options(briefing)
+    ranges = parse_in_range(briefing)
     orders = _first_attempt_orders(transcript)
     if orders is None:
         # We cannot know what he chose, but we know how many corps he held.
@@ -128,6 +234,8 @@ def score_transcript(transcript: dict) -> tuple[Counter, int]:
             unscored += 1
             continue
         corps_id = order.get("corps_id")
+        if isinstance(corps_id, str):
+            corps_id = corps_id.strip()   # as engine/orders.py does; see _objective_of
         corps_options = options.get(corps_id)
         if not corps_options:
             unscored += 1
@@ -139,13 +247,33 @@ def score_transcript(transcript: dict) -> tuple[Counter, int]:
         if "posture" not in order:
             unscored += 1
             continue
-        buckets[bucket_for(order, corps_options)] += 1
+        bucket = bucket_for(order, corps_options, ranges.get(corps_id))
+        if bucket == UNSCORED:
+            unscored += 1
+        else:
+            buckets[bucket] += 1
     # A corps that was briefed but never received any order (valid or
     # malformed) must not vanish from the denominator - a duplicate order
     # for one corps is deduplicated by `seen`, so it can't paper over
     # another corps that got nothing.
     unscored += sum(1 for corps_id in options if corps_id not in seen)
     return buckets, unscored
+
+
+def menu_shapes(transcripts: Iterable[dict]) -> Counter:
+    """options offered -> how many corps-briefings offered exactly that many.
+
+    The menu shape is endogenous and it drives the aggregate: `middle` is only
+    reachable on a three-long menu, and a model that advances reaches contact
+    and *earns* three-long attack menus while a passive one keeps drawing
+    two-long ones. Two runs are only comparable if their shape mixes are, so
+    the mix is reported alongside the table.
+    """
+    shapes: Counter = Counter()
+    for transcript in transcripts:
+        for options in parse_staff_options(_briefing_of(transcript)).values():
+            shapes[len(options)] += 1
+    return shapes
 
 
 def summarize(transcripts: Iterable[dict]) -> dict[str, tuple[Counter, int]]:
