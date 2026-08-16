@@ -1,9 +1,11 @@
+import json as _json
+from collections import Counter
 from pathlib import Path
 
 import pytest
 
 from commanders.briefing import build_briefing
-from commanders.divergence import bucket_for, parse_staff_options
+from commanders.divergence import bucket_for, parse_staff_options, score_transcript
 from engine.scenario import load_scenario
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -89,3 +91,78 @@ def test_the_right_region_with_the_wrong_posture_is_off_menu():
 
 def test_a_missing_objective_key_is_treated_as_none():
     assert bucket_for({"corps_id": "x", "posture": "defend"}, [ATTACK, HOLD]) == "hold"
+
+
+def _transcript(state, commander, attempts=None, final_orders=None):
+    briefing = build_briefing(state, commander)
+    out = {
+        "commander": commander,
+        "request": {"messages": [
+            {"role": "system", "content": "persona"},
+            {"role": "user", "content": briefing},
+        ]},
+        "orders": {"orders": final_orders or []},
+    }
+    if attempts is not None:
+        out["attempts"] = attempts
+    return out
+
+
+def test_scores_the_orders_of_a_clean_transcript():
+    state = load_scenario(DATA_DIR)
+    reply = _json.dumps({"orders": [
+        {"corps_id": "xxiv_pz", "posture": "attack", "objective": "baranovichi"},
+        {"corps_id": "xlvi_pz", "posture": "advance", "objective": "pripyat"},
+        {"corps_id": "xlvii_pz", "posture": "defend", "objective": None},
+    ]})
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": reply}])
+    )
+    assert buckets == Counter({"first": 1, "middle": 1, "hold": 1})
+    assert unscored == 0
+
+
+def test_scores_the_first_attempt_not_the_salvaged_result():
+    # The model ordered an attack; salvage forced all three to defend. Scoring
+    # the final set would report this commander as passive when he was not.
+    state = load_scenario(DATA_DIR)
+    reply = _json.dumps({"orders": [
+        {"corps_id": "xxiv_pz", "posture": "attack", "objective": "baranovichi"},
+    ]})
+    forced = [{"corps_id": "xxiv_pz", "posture": "defend", "objective": None}]
+    buckets, _ = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": reply}, {"response": "x"}],
+                    final_orders=forced)
+    )
+    assert buckets == Counter({"first": 1})
+
+
+def test_an_unreadable_first_attempt_scores_nothing_and_counts_its_corps():
+    state = load_scenario(DATA_DIR)
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": "not json at all"}])
+    )
+    assert buckets == Counter()
+    assert unscored == 3          # guderian was briefed on three corps
+
+
+def test_falls_back_to_the_final_orders_when_there_are_no_attempts():
+    state = load_scenario(DATA_DIR)
+    final = [{"corps_id": "xxiv_pz", "posture": "attack", "objective": "baranovichi"}]
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", final_orders=final)
+    )
+    assert buckets == Counter({"first": 1})
+    assert unscored == 0
+
+
+def test_an_order_for_an_unbriefed_corps_is_unscored():
+    state = load_scenario(DATA_DIR)
+    reply = _json.dumps({"orders": [
+        {"corps_id": "ghost_pz", "posture": "attack", "objective": "minsk"},
+    ]})
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": reply}])
+    )
+    assert buckets == Counter()
+    assert unscored == 1

@@ -13,7 +13,9 @@ analyze_divergence.py.
 
 from __future__ import annotations
 
+import json
 import re
+from collections import Counter
 
 Option = tuple[str, str | None]  # (posture, objective region id)
 
@@ -84,3 +86,41 @@ def bucket_for(order: dict, options: list[Option]) -> str:
     if index == len(options) - 1 and chosen[0] in ("defend", "reserve"):
         return "hold"
     return "first" if index == 0 else "middle"
+
+
+def _first_attempt_orders(transcript: dict) -> list[dict] | None:
+    """The orders the MODEL chose, before the engine touched them.
+
+    salvage_orders forces illegal orders to 'defend', so scoring the validated
+    set would count an engine repair as the model going passive. Returns None
+    when the raw reply cannot be read at all.
+    """
+    attempts = transcript.get("attempts")
+    if not attempts:
+        return list(transcript["orders"]["orders"])
+    try:
+        return list(json.loads(attempts[0].get("response") or "")["orders"])
+    except (ValueError, TypeError, KeyError):
+        return None
+
+
+def score_transcript(transcript: dict) -> tuple[Counter, int]:
+    """(bucket counts, unscored) for one commander-turn."""
+    briefing = next(
+        (m["content"] for m in transcript["request"]["messages"] if m["role"] == "user"),
+        "",
+    )
+    options = parse_staff_options(briefing)
+    orders = _first_attempt_orders(transcript)
+    if orders is None:
+        # We cannot know what he chose, but we know how many corps he held.
+        return Counter(), len(options)
+    buckets: Counter = Counter()
+    unscored = 0
+    for order in orders:
+        corps_options = options.get(order.get("corps_id"))
+        if not corps_options:
+            unscored += 1
+            continue
+        buckets[bucket_for(order, corps_options)] += 1
+    return buckets, unscored
