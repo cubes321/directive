@@ -400,3 +400,55 @@ def test_cannot_dismiss_an_enemy_commander():
         campaign.dismiss("pavlov", "rokossovsky")
     assert campaign.political_capital == before
     assert all(c.commander == "pavlov" for c in campaign.state.corps_for("pavlov"))
+
+
+def _campaign_with_enemy_traffic(commander, corps_id):
+    """A campaign holding one commander's orders from 'last week'."""
+    campaign = Campaign.new(DATA_DIR)
+    campaign.intel_chance = 1.0
+    campaign.state.last_orders = {
+        commander: {
+            "commander": commander,
+            "orders": [{"corps_id": corps_id, "posture": "defend", "objective": None}],
+            "dispatch": "", "reasoning": "",
+        }
+    }
+    return campaign
+
+
+async def test_an_axis_intercept_reaches_the_inbox_and_no_axis_briefing():
+    # The asymmetry of the design: the player distributes his own intelligence.
+    # A future change that "helpfully" broadcasts it must fail here.
+    campaign = _campaign_with_enemy_traffic("pavlov", "sov_3a")
+    await campaign.play_turn({})
+    cards = [d for d in campaign.state.dispatches if d["commander"] == "intel"]
+    assert len(cards) == 1
+    assert cards[0]["side"] == "axis"
+    assert "axis" not in campaign.state.intel
+
+
+async def test_a_soviet_intercept_reaches_soviet_briefings_and_no_inbox_card():
+    campaign = _campaign_with_enemy_traffic("guderian", "xxiv_pz")
+    await campaign.play_turn({})
+    assert campaign.state.intel["soviet"]["commander"] == "guderian"
+    assert not [
+        d for d in campaign.state.dispatches
+        if d["commander"] == "intel" and d.get("side") == "soviet"
+    ]
+
+
+async def test_the_intel_card_says_it_has_not_been_circulated():
+    # Without this line the player watches his commanders ignore a decrypt he
+    # never sent them, and blames the commanders for his own omission.
+    campaign = _campaign_with_enemy_traffic("pavlov", "sov_3a")
+    await campaign.play_turn({})
+    card = next(d for d in campaign.state.dispatches if d["commander"] == "intel")
+    assert "not been circulated" in card["text"]
+
+
+async def test_no_intercept_at_zero_chance():
+    campaign = _campaign_with_enemy_traffic("pavlov", "sov_3a")
+    campaign.intel_chance = 0.0
+    await campaign.play_turn({})
+    assert not [d for d in campaign.state.dispatches if d["commander"] == "intel"]
+    assert campaign.state.intel == {}

@@ -25,6 +25,7 @@ from commanders.communique import (
     select_communique_authors,
 )
 from commanders.dossier import Dossier, load_dossiers
+from commanders.intel import INTEL_CHANCE, format_intel_lines, intercept
 from commanders.intent import soviet_directives
 from commanders.llm import LMStudioClient
 from commanders.orchestrator import gather_orders
@@ -88,6 +89,7 @@ class Campaign:
     player_side: str = "axis"
     political_capital: int = STARTING_POLITICAL_CAPITAL
     communique_chance: float = BASE_CHANCE
+    intel_chance: float = INTEL_CHANCE
     # When set, a per-turn battle/unit telemetry file is written here each turn
     # (for balance analysis). None = off, so tests and headless runs opt in.
     turn_log_dir: Path | None = None
@@ -164,6 +166,35 @@ class Campaign:
         self.state.weather = weather_for_turn(self.state.turn)
         self.state.directives.update(player_directives)
         self.state.directives.update(soviet_directives(self.state))
+
+        # Signals intelligence, rolled before briefings because that is what
+        # consumes it. Asymmetric on purpose: the player distributes his own
+        # side's intelligence himself (inbox only, and he signals whoever he
+        # wants), while the AI side has no player to do that, so its decrypt
+        # goes straight into every briefing on that side.
+        self.state.intel = {}
+        intel_rng = random.Random(self.state.seed * 6151 + self.state.turn)
+        for side in ("axis", "soviet"):  # fixed order: determinism
+            hit = intercept(
+                self.state, self.dossiers, side, intel_rng, chance=self.intel_chance
+            )
+            if hit is None:
+                continue
+            if side == self.player_side:
+                body = "\n".join(format_intel_lines(self.state, hit))
+                self.state.dispatches.append({
+                    "turn": self.state.turn,
+                    "commander": "intel",
+                    "side": side,
+                    "text": (
+                        "DECRYPT of last week's enemy traffic - believed accurate:\n"
+                        f"{body}\n\n"
+                        "This decrypt has not been circulated. Signal a commander "
+                        "if you want him to act on it."
+                    ),
+                })
+            else:
+                self.state.intel[side] = hit
 
         active = self.active_commanders()
         if self.client is not None:
