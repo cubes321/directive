@@ -8,6 +8,7 @@ net" architecture.
 
 from __future__ import annotations
 
+from commanders.intel import format_intel_lines
 from engine.fog import visible_enemy_contacts
 from engine.movement import movement_points, reachable
 from engine.state import GameState
@@ -154,6 +155,14 @@ def build_briefing(state: GameState, commander: str) -> str:
             lines.append(_contact_line(state, region_id, contacts[region_id]))
     else:
         lines.append("- No confirmed enemy contacts.")
+    decrypt = state.intel.get(side)
+    if decrypt:
+        lines.append("")
+        lines.append(
+            "SIGNALS INTELLIGENCE (decrypt of last week's enemy traffic - "
+            "believed accurate):"
+        )
+        lines.extend(format_intel_lines(state, decrypt))
     lines.append("")
     lines.append("STAFF OPTIONS (your staff's suggestions; you may order otherwise):")
     for corps in own:

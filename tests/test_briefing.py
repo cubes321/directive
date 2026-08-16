@@ -140,3 +140,44 @@ def test_briefing_reports_a_reduced_ceiling():
     line = next(ln for ln in text.splitlines() if worn.name in ln)
     assert "/90" in line                   # strength shown against the ceiling
     assert "cadre" in line.lower() or "never" in line.lower()
+
+
+def _with_intel(state):
+    state.intel = {
+        "soviet": {
+            "commander": "guderian",
+            "name": "Generaloberst Heinz Guderian",
+            "role": "2nd Panzer Group",
+            "orders": [
+                {"corps_id": "xxiv_pz", "posture": "attack", "objective": "baranovichi"},
+            ],
+        }
+    }
+    return state
+
+
+def test_a_soviet_briefing_carries_the_decrypt():
+    state = _with_intel(load_scenario(DATA_DIR))
+    text = build_briefing(state, "pavlov")
+    assert "SIGNALS INTELLIGENCE" in text
+    assert "Guderian" in text
+    assert "[id: baranovichi]" in text
+
+
+def test_the_other_side_sees_no_decrypt():
+    # intel is keyed by side: soviet intelligence never appears in axis briefings.
+    state = _with_intel(load_scenario(DATA_DIR))
+    assert "SIGNALS INTELLIGENCE" not in build_briefing(state, "guderian")
+
+
+def test_a_briefing_without_intel_is_unchanged():
+    state = load_scenario(DATA_DIR)
+    assert "SIGNALS INTELLIGENCE" not in build_briefing(state, "pavlov")
+
+
+def test_the_decrypt_sits_above_the_staff_options():
+    # divergence.py parses STAFF OPTIONS positionally from the end; keep the
+    # new block above it.
+    state = _with_intel(load_scenario(DATA_DIR))
+    text = build_briefing(state, "pavlov")
+    assert text.index("SIGNALS INTELLIGENCE") < text.index("STAFF OPTIONS")
