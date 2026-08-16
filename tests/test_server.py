@@ -210,3 +210,25 @@ async def test_game_state_persists_across_session_reload(api, tmp_path):
     session.reload()
     snap = (await api.get("/api/game")).json()
     assert snap["turn"] == 2
+
+
+async def test_the_players_own_decrypt_reaches_his_snapshot(api):
+    await api.post("/api/game/new")
+    campaign = get_session().require_campaign()
+    campaign.state.dispatches.append(
+        {"turn": 1, "commander": "intel", "side": "axis", "text": "DECRYPT ..."}
+    )
+    snap = (await api.get("/api/game")).json()
+    assert any(d["commander"] == "intel" for d in snap["dispatches"])
+
+
+async def test_a_soviet_decrypt_never_reaches_the_player(api):
+    # Fog discipline: only ever surface the player's own side. A bare "intel"
+    # entry in the allow-list would leak this.
+    await api.post("/api/game/new")
+    campaign = get_session().require_campaign()
+    campaign.state.dispatches.append(
+        {"turn": 1, "commander": "intel", "side": "soviet", "text": "DECRYPT ..."}
+    )
+    snap = (await api.get("/api/game")).json()
+    assert not any(d["commander"] == "intel" for d in snap["dispatches"])

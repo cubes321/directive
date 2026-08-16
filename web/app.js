@@ -272,6 +272,13 @@ function renderDispatches() {
         <div class="from">Oberkommando des Heeres</div>
         <div class="meta">DIRECTIVE · WEEK ${Number(d.turn)}</div>
         <div class="body"></div>`;
+    } else if (d.commander === "intel") {
+      card.className = "dispatch intel";
+      card.innerHTML = `
+        <div class="geheim">ENTZIFFERT</div>
+        <div class="from">Horchdienst — Signals Intercept Service</div>
+        <div class="meta">DECRYPT · WEEK ${Number(d.turn)}</div>
+        <div class="body"></div>`;
     } else {
       const cmd = byName[d.commander];
       card.className = "dispatch";

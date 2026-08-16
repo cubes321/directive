@@ -175,6 +175,8 @@ def snapshot(session: Session) -> dict:
     dispatches = [
         d for d in state.dispatches
         if d["commander"] in ("staff", "okh")  # staff report and OKH directives
+        # a decrypt is fogged by the side that made it, never by commander id
+        or (d["commander"] == "intel" and d.get("side") == side)
         or (d["commander"] in campaign.dossiers
             and campaign.dossiers[d["commander"]].side == side)
     ][-DISPATCH_HISTORY_LIMIT:]

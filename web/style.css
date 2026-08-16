@@ -382,6 +382,12 @@ main { flex: 1; display: flex; min-height: 0; }
 .dispatch.staff .geheim { color: rgba(91, 94, 68, .8); border-color: rgba(91, 94, 68, .6); }
 .dispatch.staff .from { color: #474a33; }
 
+/* signals intercept decrypt */
+.dispatch.intel { background: #e4e8ea; border-left: 5px solid #46606e; }
+.dispatch.intel .geheim { color: rgba(70,96,110,.85); border-color: rgba(70,96,110,.6); }
+.dispatch.intel .from { color: #33474f; }
+.dispatch.intel .body { white-space: pre-wrap; }
+
 /* signal channel (commander chat) */
 .dismiss-row .spacer { flex: 1; }
 .chat-toggle {
