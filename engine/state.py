@@ -34,6 +34,12 @@ class GameState:
     railheads: dict[str, list[str]] = field(default_factory=dict)  # side -> converted region ids
     objectives: list[dict] = field(default_factory=list)  # OKH objective schedule + status
     moscow_held_turns: int = 0  # consecutive turns the axis has held Moscow
+    # Last turn's VALIDATED orders per commander, for signals intelligence.
+    # Validated rather than raw so a decrypt reports what the engine acted on.
+    last_orders: dict[str, dict] = field(default_factory=dict)
+    # This turn's intercept per side, for the briefing block. Only ever holds a
+    # side's own intelligence; the player's copy goes to his inbox instead.
+    intel: dict[str, dict] = field(default_factory=dict)
 
     @property
     def date(self) -> datetime.date:
@@ -66,6 +72,8 @@ class GameState:
             railheads={k: list(v) for k, v in data.get("railheads", {}).items()},
             objectives=[dict(o) for o in data.get("objectives", [])],
             moscow_held_turns=data.get("moscow_held_turns", 0),
+            last_orders={k: dict(v) for k, v in data.get("last_orders", {}).items()},
+            intel={k: dict(v) for k, v in data.get("intel", {}).items()},
         )
 
     def to_dict(self) -> dict:
@@ -84,4 +92,6 @@ class GameState:
             "railheads": {k: list(v) for k, v in self.railheads.items()},
             "objectives": [dict(o) for o in self.objectives],
             "moscow_held_turns": self.moscow_held_turns,
+            "last_orders": {k: dict(v) for k, v in self.last_orders.items()},
+            "intel": {k: dict(v) for k, v in self.intel.items()},
         }

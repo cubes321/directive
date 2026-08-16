@@ -1,4 +1,9 @@
+from pathlib import Path
+
+from engine.scenario import load_scenario
 from engine.state import GameState
+
+DATA_DIR = Path(__file__).parent.parent / "data"
 
 
 def minimal_state_data():
@@ -53,3 +58,29 @@ def test_corps_for_commander():
 def test_corps_at_region():
     s = GameState.from_dict(minimal_state_data())
     assert [c.id for c in s.corps_at("minsk")] == ["sov_13a"]
+
+
+def test_last_orders_and_intel_round_trip_through_a_save():
+    state = load_scenario(DATA_DIR)
+    state.last_orders = {
+        "guderian": {
+            "commander": "guderian",
+            "orders": [{"corps_id": "xxiv_pz", "posture": "attack", "objective": "minsk"}],
+            "dispatch": "Forward.",
+            "reasoning": "",
+        }
+    }
+    state.intel = {"soviet": {"commander": "guderian", "name": "G", "orders": []}}
+    restored = GameState.from_dict(state.to_dict())
+    assert restored.last_orders["guderian"]["orders"][0]["objective"] == "minsk"
+    assert restored.intel["soviet"]["commander"] == "guderian"
+
+
+def test_a_save_predating_signals_intelligence_still_loads():
+    state = load_scenario(DATA_DIR)
+    payload = state.to_dict()
+    del payload["last_orders"]
+    del payload["intel"]
+    restored = GameState.from_dict(payload)
+    assert restored.last_orders == {}
+    assert restored.intel == {}

@@ -321,6 +321,11 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         state.moscow_held_turns = 0
 
     state.turn += 1
+
+    # Keep what we actually resolved, for next week's signals intelligence.
+    # Written at the end so it reflects the set the engine really acted on.
+    state.last_orders = {cid: o.to_dict() for cid, o in all_orders.items()}
+
     return report
 
 

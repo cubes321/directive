@@ -1,7 +1,12 @@
+from pathlib import Path
+
 from engine.orders import CommanderOrders, CorpsOrder
+from engine.scenario import load_scenario
 from engine.state import GameState
 from engine.turn import _distribute_losses, resolve_turn
 from engine.units import Corps
+
+DATA_DIR = Path(__file__).parent.parent / "data"
 
 
 def _corps(cid, strength=100, organization=100, supply=100):
@@ -456,3 +461,19 @@ def test_newly_arrived_reinforcement_pays_no_wastage():
     s = GameState.from_dict(data)
     resolve_turn(s, {})
     assert s.corps["ax9"].strength == 100
+
+
+def test_resolve_turn_records_the_orders_it_acted_on():
+    # The decrypt must report what the engine actually did, so this stores the
+    # VALIDATED set - a salvaged order is what the corps really received.
+    state = load_scenario(DATA_DIR)
+    orders = {
+        "guderian": CommanderOrders(
+            commander="guderian",
+            orders=[CorpsOrder(corps_id="xxiv_pz", posture="defend", objective=None)],
+            dispatch="Holding.",
+        )
+    }
+    resolve_turn(state, orders)
+    assert state.last_orders["guderian"]["orders"][0]["posture"] == "defend"
+    assert state.last_orders["guderian"]["dispatch"] == "Holding."
