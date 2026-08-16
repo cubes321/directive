@@ -153,7 +153,10 @@ def test_falls_back_to_the_final_orders_when_there_are_no_attempts():
         _transcript(state, "guderian", final_orders=final)
     )
     assert buckets == Counter({"first": 1})
-    assert unscored == 0
+    # xlvi_pz and xlvii_pz were briefed but this fixture's final orders only
+    # cover xxiv_pz - they now count as unscored (see
+    # test_a_briefed_corps_with_no_order_is_unscored).
+    assert unscored == 2
 
 
 def test_an_order_for_an_unbriefed_corps_is_unscored():
@@ -165,4 +168,81 @@ def test_an_order_for_an_unbriefed_corps_is_unscored():
         _transcript(state, "guderian", attempts=[{"response": reply}])
     )
     assert buckets == Counter()
+    # ghost_pz itself, plus all three of guderian's real briefed corps, which
+    # got no order at all in this reply (see test_a_briefed_corps_with_no_order...).
+    assert unscored == 4
+
+
+def test_a_briefed_corps_with_no_order_is_unscored():
+    # A first attempt that is valid JSON but silently omits one of the three
+    # briefed corps must not let that corps vanish from the denominator.
+    state = load_scenario(DATA_DIR)
+    reply = _json.dumps({"orders": [
+        {"corps_id": "xxiv_pz", "posture": "attack", "objective": "baranovichi"},
+        {"corps_id": "xlvi_pz", "posture": "advance", "objective": "pripyat"},
+        # xlvii_pz never receives an order.
+    ]})
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": reply}])
+    )
+    assert buckets == Counter({"first": 1, "middle": 1})
     assert unscored == 1
+
+
+def test_a_duplicate_order_for_the_same_corps_does_not_inflate_unscored():
+    # Two entries for the same corps must not make the missing-corps count
+    # come out wrong (a naive len(options) - len(orders) diff would).
+    state = load_scenario(DATA_DIR)
+    reply = _json.dumps({"orders": [
+        {"corps_id": "xxiv_pz", "posture": "attack", "objective": "baranovichi"},
+        {"corps_id": "xxiv_pz", "posture": "attack", "objective": "baranovichi"},
+    ]})
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": reply}])
+    )
+    assert buckets == Counter({"first": 2})
+    # xlvi_pz and xlvii_pz got nothing; xxiv_pz counts as covered once.
+    assert unscored == 2
+
+
+def test_orders_decoding_to_a_dict_degrades_entries_to_unscored():
+    # Some backends don't strictly enforce the schema (see moonshot/kimi notes).
+    # If "orders" comes back as an object instead of an array, list(dict)
+    # succeeds and yields bare strings as "orders" - those must not reach
+    # order.get()/order[...] uncaught.
+    state = load_scenario(DATA_DIR)
+    reply = _json.dumps({"orders": {"corps_id": "xxiv_pz"}})
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": reply}])
+    )
+    assert buckets == Counter()
+    # the one bogus string entry, plus all three briefed corps missing.
+    assert unscored == 4
+
+
+def test_an_order_missing_posture_is_unscored_not_a_crash():
+    state = load_scenario(DATA_DIR)
+    reply = _json.dumps({"orders": [
+        {"corps_id": "xxiv_pz", "objective": "baranovichi"},
+    ]})
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": reply}])
+    )
+    assert buckets == Counter()
+    # the malformed xxiv_pz order, plus the two other briefed corps missing.
+    assert unscored == 3
+
+
+def test_falls_back_to_final_orders_when_attempts_is_an_empty_list():
+    # `if not attempts:` also catches attempts: [], not just a missing key.
+    state = load_scenario(DATA_DIR)
+    final = [
+        {"corps_id": "xxiv_pz", "posture": "attack", "objective": "baranovichi"},
+        {"corps_id": "xlvi_pz", "posture": "advance", "objective": "pripyat"},
+        {"corps_id": "xlvii_pz", "posture": "defend", "objective": None},
+    ]
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[], final_orders=final)
+    )
+    assert buckets == Counter({"first": 1, "middle": 1, "hold": 1})
+    assert unscored == 0

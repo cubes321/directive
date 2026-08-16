@@ -117,10 +117,31 @@ def score_transcript(transcript: dict) -> tuple[Counter, int]:
         return Counter(), len(options)
     buckets: Counter = Counter()
     unscored = 0
+    seen: set[str] = set()
     for order in orders:
-        corps_options = options.get(order.get("corps_id"))
+        # A backend that doesn't strictly enforce the schema can hand back an
+        # entry that isn't even a dict (e.g. "orders" decoded to an object,
+        # and list(dict) yielded its keys as bare strings). That is a model
+        # failure to surface, not a crash.
+        if not isinstance(order, dict):
+            unscored += 1
+            continue
+        corps_id = order.get("corps_id")
+        corps_options = options.get(corps_id)
         if not corps_options:
             unscored += 1
             continue
+        # Mark the corps covered even if this particular order turns out to
+        # be malformed below - it did receive an order, just not a usable
+        # one, and that must not also count it as briefed-but-silent.
+        seen.add(corps_id)
+        if "posture" not in order:
+            unscored += 1
+            continue
         buckets[bucket_for(order, corps_options)] += 1
+    # A corps that was briefed but never received any order (valid or
+    # malformed) must not vanish from the denominator - a duplicate order
+    # for one corps is deduplicated by `seen`, so it can't paper over
+    # another corps that got nothing.
+    unscored += sum(1 for corps_id in options if corps_id not in seen)
     return buckets, unscored
