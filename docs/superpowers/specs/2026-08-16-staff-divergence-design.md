@@ -51,10 +51,10 @@ The originally-scoped metric is recoverable: divergence = 100% − `first`.
 ### What `off-menu` deliberately excludes
 
 Being the strongest positive signal makes `off-menu` the bucket most worth
-defending, and the first implementation leaked three things into it that are
+defending, and the first implementation leaked four things into it that are
 not independence at all — between 44% and 77% of the bucket, measured on the
-runs below. Anyone touching the matching in `bucket_for` must keep all three
-out:
+runs below (43 → 10, 54 → 27, 48 → 27). Anyone touching the matching in
+`bucket_for` must keep all four out:
 
 1. **The other move verb.** `attack` and `advance` are one order to the engine:
    `engine/turn.py:138` is the only place either posture is read and it reads
@@ -79,6 +79,19 @@ out:
    objective, the move merely bounces). Such orders go to `unscored`, not to a
    fifth bucket: validity is `analyze_logs.py`'s beat, and `unscored` already
    means "this order told us nothing about the model's character".
+4. **An order the engine would refuse outright.** A move posture with no
+   objective at all (`{"posture": "advance", "objective": null}`, rejected at
+   `engine/orders.py:92`) or a posture outside `POSTURES` (rejected at
+   `engine/orders.py:85`). Neither can match a staff option — the staff only
+   proposes legal postures, and every move it proposes names a region — so both
+   fell straight through to `off-menu`, and `salvage_orders` then forced them to
+   `defend`. The missing-objective shape was qwen3.5-4b's dominant first-attempt
+   failure: six orders in `run-20260816-164524`, 37.5% of that run's off-menu
+   bucket as it then stood (16), and five of them belonged to one commander,
+   `weichs`, who was thereby published at 62% `off-menu` when he had in fact
+   ordered nothing but holds. Checked *before* the range test of (3): a move
+   with no objective is illegal whether or not the briefing told us what was in
+   range.
 
 ### The menu shape is endogenous — report it
 
@@ -230,7 +243,7 @@ TDD, against the mocked-transport-free pure functions:
 
 `superpowers:writing-plans` for the implementation plan.
 
-## Baseline (re-measured 2026-08-16, after the off-menu fix)
+## Baseline (re-measured 2026-08-16, after all four off-menu fixes)
 
 Measured by running `analyze_divergence.py` against the three same-day runs.
 Sample size: 36 commander-turns per run (9 commanders × 4 turns each); the
@@ -240,31 +253,47 @@ corps. Per-commander rows (not reproduced here) rest on roughly a dozen
 orders each and are indicative rather than settled — treat only the `ALL`
 row as a run-level signal.
 
-An earlier version of this table (4b 22/8/32/38, 9b 33/9/12/45, 9b-post
-34/12/13/40) was produced by the buggy scoring described under "What
-`off-menu` deliberately excludes" and is void: it showed the 4b model as the
-*more* independent of the two, which was an artifact of it writing the wrong
-move verb and naming unreachable regions more often.
+Two earlier versions of this table are void. The first (4b 22/8/32/38, 9b
+33/9/12/45, 9b-post 34/12/13/40) was produced by the fully buggy scoring and
+showed the 4b model as the *more* independent of the two — an artifact of it
+writing the wrong move verb and naming unreachable regions more often. The
+second (4b 112 / 29/9/48/14, unscored 9) still credited leak 4 above: orders
+the engine refuses outright. Only the 4b row moved; both 9b runs are byte-for-
+byte unchanged, because neither ever emitted a move without an objective.
 
 | run | model | menu shape (1 / 2 / 3 options) | n | first | middle | hold | off-menu | unscored |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `run-20260816-164524` | qwen3.5-4b | 4 / 83 / 33 | 112 | 29% | 9% | 48% | 14% | 9 |
+| `run-20260816-164524` | qwen3.5-4b | 4 / 83 / 33 | 106 | 30% | 9% | 51% | 9% | 15 |
 | `run-20260816-165131` | qwen/qwen3.5-9b | 6 / 82 / 32 | 119 | 47% | 9% | 21% | 23% | 1 |
 | `run-20260816-170643` | qwen/qwen3.5-9b (post addressee fix) | 5 / 76 / 38 | 116 | 41% | 12% | 23% | 23% | 3 |
 
-The reading reverses. The 4b model is not more independent, it is *more
-passive*: 48% `hold` against the 9b's 21–23%, and only 14% `off-menu` against
-23%. The 9b runs take the staff's lead suggestion far more often (47% and 41%
-vs 29%) but, when they leave the menu, leave it for somewhere they can
-actually go.
+The reading reverses, and the correction of leak 4 sharpens it. The 4b model is
+not more independent, it is *more passive*: 51% `hold` against the 9b's 21–23%,
+and 9% `off-menu` against 23%. The 9b runs take the staff's lead suggestion far
+more often (47% and 41% vs 30%) but, when they leave the menu, leave it for
+somewhere they can actually go.
 
-`unscored` still separates the models the same way, and for the reasons the
-counter exists: 9 for the 4b run against 1 and 3 for the 9b runs — first
-attempts that would not parse, orders for corps with no briefed options, and
-(the new contributor) objectives out of reach. Six of the 4b's nine are
-"advance to the region I am already standing in", which `validate_orders`
-accepts but the engine discards as a no-op; they belong in `unscored` either
-way, since they tell us nothing about the commander's character.
+The per-commander rows carry the same correction. `weichs` on the 4b was
+published at 62% `off-menu` — the run's most independent-looking commander —
+on the strength of five "advance, objective null" orders. Scored honestly he is
+`n=3, 100% hold` with 5 `unscored`: not a commander with ideas of his own but
+one whose orders were mostly unusable. On the same persona the 9b scores 50%
+`off-menu` on a full `n=8`. `strauss` moves the same way, from `n=11` with one
+`off-menu` to `n=10, 90% hold`. No other commander changes.
+
+`unscored` separates the models the same way, and for the reasons the counter
+exists: 15 for the 4b run against 1 and 3 for the 9b runs. The 4b's fifteen
+decompose as 6 move orders with no objective (5 `weichs`, 1 `strauss`), 6 corps
+across two commander-turns whose first attempt would not parse at all (`hoth`
+turn 1, two corps; `kluge` turn 1, four), 1 order for a corps with no briefed
+options (`strauss` turn 4, `vii_10th_army_corps`), 1 briefed corps that got no
+order at all (same transcript), and 1 objective out of reach (`timoshenko`
+turn 1: `sov_19a`, standing in Vitebsk, ordered to advance to Vitebsk, which is
+not in its own In-range list). That last one is the run's *only* order naming
+the region the corps already occupies — `validate_orders` would accept it
+(`engine/orders.py:98` exempts the corps's own location) and the engine would
+discard the move as a no-op, so it tells us nothing about character either way.
+All 1 and 3 of the 9b runs' unscored are out-of-reach objectives.
 
 The menu-shape mixes are close enough across the three runs (27–32% three-long)
 that the `middle` column is comparable between them. That will not always hold.
