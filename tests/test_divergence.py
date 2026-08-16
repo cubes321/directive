@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from commanders.briefing import build_briefing
-from commanders.divergence import parse_staff_options
+from commanders.divergence import bucket_for, parse_staff_options
 from engine.scenario import load_scenario
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -45,3 +45,47 @@ def test_an_unrecognized_option_line_raises():
 
 def test_a_briefing_without_staff_options_yields_nothing():
     assert parse_staff_options("SITUATION BRIEFING - no options here") == {}
+
+
+ATTACK = ("attack", "minsk")
+ADVANCE = ("advance", "slonim")
+HOLD = ("defend", None)
+
+
+def _order(posture, objective=None, corps_id="xxiv_pz"):
+    return {"corps_id": corps_id, "posture": posture, "objective": objective}
+
+
+def test_the_staffs_lead_suggestion_is_first():
+    assert bucket_for(_order("attack", "minsk"), [ATTACK, ADVANCE, HOLD]) == "first"
+
+
+def test_a_later_move_suggestion_is_middle():
+    assert bucket_for(_order("advance", "slonim"), [ATTACK, ADVANCE, HOLD]) == "middle"
+
+
+def test_the_trailing_hold_option_is_hold():
+    assert bucket_for(_order("defend"), [ATTACK, ADVANCE, HOLD]) == "hold"
+
+
+def test_index_one_is_hold_when_the_list_is_only_two_long():
+    # A quiet sector offers one move and then the hold. Raw rank would call
+    # this "middle" and read as independence; it is the opposite.
+    assert bucket_for(_order("defend"), [ATTACK, HOLD]) == "hold"
+
+
+def test_the_only_option_being_hold_scores_as_hold_not_first():
+    # Starving infantry in the mud can reach nothing at all.
+    assert bucket_for(_order("defend"), [HOLD]) == "hold"
+
+
+def test_an_objective_the_staff_never_raised_is_off_menu():
+    assert bucket_for(_order("advance", "slutsk"), [ATTACK, ADVANCE, HOLD]) == "off-menu"
+
+
+def test_the_right_region_with_the_wrong_posture_is_off_menu():
+    assert bucket_for(_order("advance", "minsk"), [ATTACK, ADVANCE, HOLD]) == "off-menu"
+
+
+def test_a_missing_objective_key_is_treated_as_none():
+    assert bucket_for({"corps_id": "x", "posture": "defend"}, [ATTACK, HOLD]) == "hold"

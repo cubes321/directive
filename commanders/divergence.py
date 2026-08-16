@@ -17,6 +17,8 @@ import re
 
 Option = tuple[str, str | None]  # (posture, objective region id)
 
+BUCKETS = ("first", "middle", "hold", "off-menu")
+
 _CORPS_HEADER = re.compile(r"^For .+ \[([a-z0-9_]+)\]:$")
 _OPTION_LINE = re.compile(r"^  \* (.+)$")
 _REGION_ID = re.compile(r"\[id: ([a-z0-9_]+)\]")
@@ -65,3 +67,20 @@ def parse_staff_options(briefing: str) -> dict[str, list[Option]]:
         if entry and current is not None:
             options[current].append(_option_from_text(entry.group(1)))
     return options
+
+
+def bucket_for(order: dict, options: list[Option]) -> str:
+    """Which bucket this order falls in, given the options that corps was
+    offered. See BUCKETS.
+
+    A one-entry list holding only the hold option makes index 0 both first and
+    last; 'hold' wins, because taking the only offered option when that option
+    is inaction is not a sign of a commander thinking for himself.
+    """
+    chosen = (order["posture"], order.get("objective"))
+    if chosen not in options:
+        return "off-menu"
+    index = options.index(chosen)
+    if index == len(options) - 1 and chosen[0] in ("defend", "reserve"):
+        return "hold"
+    return "first" if index == 0 else "middle"
