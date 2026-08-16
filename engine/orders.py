@@ -50,10 +50,22 @@ class CommanderOrders:
     def from_dict(cls, data: dict) -> CommanderOrders:
         return cls(
             commander=data["commander"],
-            orders=[CorpsOrder(**o) for o in data["orders"]],
+            orders=[_corps_order_from_dict(o) for o in data["orders"]],
             dispatch=data.get("dispatch", ""),
             reasoning=data.get("reasoning", ""),
         )
+
+
+def _corps_order_from_dict(data: dict) -> CorpsOrder:
+    """Parse one order, normalizing what models get wrong about *format* rather
+    than about strategy. A leading space in an id (`" velikie_luki"`, observed
+    from qwen3.5-4b) and a blank-string objective are not disagreements the
+    commander should be asked to defend - they should never reach validation."""
+    return CorpsOrder(
+        corps_id=data["corps_id"].strip(),
+        posture=data["posture"],
+        objective=(data.get("objective") or "").strip() or None,
+    )
 
 
 def _order_errors(
@@ -72,29 +84,41 @@ def _order_errors(
     if order.posture not in POSTURES:
         return [f"{order.corps_id}: unknown posture '{order.posture}' (use one of {POSTURES})"]
     if order.posture in ("attack", "advance"):
+        # Name the legal destinations in EVERY rejection on this branch. Stating
+        # only what is illegal reads as "you cannot move", and a cautious
+        # commander answers the repair prompt by dropping the advance instead of
+        # taking an intermediate bound - observed in play, for four turns running.
+        in_range, options = _reach_options(corps, game_map, control, weather)
         if order.objective is None:
-            return [f"{order.corps_id}: posture '{order.posture}' needs an objective"]
+            return [
+                f"{order.corps_id}: posture '{order.posture}' needs an objective ({options})"
+            ]
         if order.objective not in game_map.regions:
-            return [f"{order.corps_id}: unknown region '{order.objective}'"]
-        enemy_held = {r for r, side in control.items() if side != corps.side}
-        in_range = reachable(
-            game_map, corps.location, movement_points(corps, weather), blocked=enemy_held
-        )
+            return [f"{order.corps_id}: unknown region '{order.objective}' ({options})"]
         if order.objective != corps.location and order.objective not in in_range:
-            # Name the legal destinations. Stating only the rejection reads as
-            # "you cannot move", and a cautious commander answers the repair
-            # prompt by dropping the advance instead of taking an intermediate
-            # bound - observed in play, for four turns running.
-            options = (
-                "reachable this turn: " + ", ".join(sorted(in_range))
-                if in_range
-                else "nothing is in reach this turn; hold instead"
-            )
             return [
                 f"{order.corps_id}: objective '{order.objective}' is out of reach "
                 f"this turn from {corps.location} ({options})"
             ]
     return []
+
+
+def _reach_options(
+    corps: Corps, game_map: GameMap, control: dict[str, str], weather: str
+) -> tuple[set[str], str]:
+    """Where this corps can legally go this turn, and that same set phrased for a
+    repair prompt. One source of truth so a rejection can never name a
+    destination the validator would then refuse."""
+    enemy_held = {r for r, side in control.items() if side != corps.side}
+    in_range = reachable(
+        game_map, corps.location, movement_points(corps, weather), blocked=enemy_held
+    )
+    options = (
+        "reachable this turn: " + ", ".join(sorted(in_range))
+        if in_range
+        else "nothing is in reach this turn; hold instead"
+    )
+    return in_range, options
 
 
 def validate_orders(

@@ -139,6 +139,67 @@ def test_attack_requires_objective():
     assert errors
 
 
+def test_missing_objective_error_names_the_reachable_regions():
+    # Same lesson as test_out_of_reach_error_names_the_reachable_regions, on the
+    # branch that never learned it. With reasoning turned off, small local models
+    # emit `posture: advance, objective: null` constantly (6 of 8 bad orders in
+    # logs/run-20260816-163603); "needs an objective" names none, so the repair
+    # answers by dropping to defend. Tell him where he CAN go.
+    game_map, corps, control = setup()
+    orders = CommanderOrders(
+        commander="guderian",
+        orders=[CorpsOrder(corps_id="xxiv_pz", posture="advance", objective=None)],
+        dispatch="",
+    )
+    error = next(e for e in validate_orders(orders, game_map, corps, control) if "xxiv_pz" in e)
+    assert "minsk" in error  # xxiv_pz sits at brest; minsk is one highway hop
+
+
+def test_missing_objective_error_when_nothing_is_in_reach_says_so():
+    # A corps that genuinely cannot move must not be handed an empty list of
+    # alternatives - that reads as a dead end and invites a malformed retry.
+    # Starving infantry in the October mud has 1 MP; every edge here costs 2.
+    game_map, corps, control = setup()
+    bogged = make_corps("bogged_ak", kind="infantry", supply=10)
+    orders = CommanderOrders(
+        commander="guderian",
+        orders=[CorpsOrder(corps_id="bogged_ak", posture="advance", objective=None)],
+        dispatch="",
+    )
+    errors = validate_orders(orders, game_map, corps + [bogged], control, weather="mud")
+    error = next(e for e in errors if "bogged_ak" in e)
+    assert "hold" in error.lower()
+
+
+def test_ids_are_stripped_when_parsed_from_model_json():
+    # Observed from qwen3.5-4b: `"objective": " velikie_luki"`. A stray space is
+    # not a disagreement about strategy - it should never reach validation, let
+    # alone cost a repair round-trip.
+    parsed = CommanderOrders.from_dict(
+        {
+            "commander": "guderian",
+            "orders": [
+                {"corps_id": " xxiv_pz ", "posture": "attack", "objective": " minsk"},
+            ],
+            "dispatch": "",
+        }
+    )
+    assert parsed.orders[0].corps_id == "xxiv_pz"
+    assert parsed.orders[0].objective == "minsk"
+
+
+def test_blank_objective_parses_as_none():
+    # "" and "   " mean the same thing as null, and only null is handled below.
+    parsed = CommanderOrders.from_dict(
+        {
+            "commander": "guderian",
+            "orders": [{"corps_id": "xxiv_pz", "posture": "defend", "objective": "  "}],
+            "dispatch": "",
+        }
+    )
+    assert parsed.orders[0].objective is None
+
+
 def test_orders_must_cover_all_living_corps():
     game_map, corps, control = setup()
     orders = CommanderOrders(
