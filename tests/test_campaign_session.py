@@ -452,3 +452,29 @@ async def test_no_intercept_at_zero_chance():
     await campaign.play_turn({})
     assert not [d for d in campaign.state.dispatches if d["commander"] == "intel"]
     assert campaign.state.intel == {}
+
+
+async def test_a_stale_decrypt_does_not_persist_into_the_next_turns_briefing():
+    # play_turn starts its intel block with `self.state.intel = {}`. Without
+    # that reset, a decrypt that landed one turn would still be sitting in
+    # state.intel on a later turn where nothing was intercepted - commanders
+    # would brief off week(s)-old intelligence forever.
+    campaign = _campaign_with_enemy_traffic("guderian", "xxiv_pz")
+    await campaign.play_turn({})  # intel_chance=1.0: a decrypt lands
+    assert "soviet" in campaign.state.intel
+
+    campaign.intel_chance = 0.0
+    await campaign.play_turn({})  # nothing intercepted this turn
+    assert campaign.state.intel == {}
+
+
+async def test_the_asymmetry_holds_for_a_soviet_player_too():
+    # play_turn branches on `side == self.player_side`; the branch must mirror
+    # correctly for a Soviet player, not just the default Axis one.
+    campaign = _campaign_with_enemy_traffic("guderian", "xxiv_pz")
+    campaign.player_side = "soviet"
+    await campaign.play_turn({})
+    cards = [d for d in campaign.state.dispatches if d["commander"] == "intel"]
+    assert len(cards) == 1
+    assert cards[0]["side"] == "soviet"
+    assert "soviet" not in campaign.state.intel
