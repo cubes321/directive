@@ -61,6 +61,7 @@ class LMStudioClient:
         # Gate in-flight requests so queued ones wait here (no timeout running)
         # rather than in the server's queue (timeout burning) — see _chat.
         self._semaphore = asyncio.Semaphore(max_concurrency)
+        self._warmed = False  # see warm_up()
         self.transport = transport
         self.log_dir = Path(log_dir) if log_dir else None
 
@@ -82,6 +83,42 @@ class LMStudioClient:
 
     def _model_for(self, role: str | None) -> str:
         return self.models.get(role, self.model) if role else self.model
+
+    async def warm_up(self) -> None:
+        """Make every configured model resident before the turn fans out.
+
+        LM Studio loads a model on first use, and a request that lands mid-load
+        comes back with ``usage.completion_tokens`` > 0 but an EMPTY ``content``
+        *and* empty ``reasoning_content`` - so ``_chat`` yields "" and the
+        commander burns a repair round-trip. Measured on qwen/qwen3.5-9b: 8 of 9
+        commanders failed that way on turn 1, and the same run scored 35/36 once
+        the model was resident.
+
+        Deliberately quiet: this never raises and never logs tokens. A wrong
+        model name still surfaces loudly on the first real request, which is
+        where a config error belongs.
+        """
+        if self._warmed:
+            return
+        self._warmed = True
+        models = sorted({self.model, *self.models.values()})
+        await asyncio.gather(*(self._warm_model(m) for m in models))
+
+    async def _warm_model(self, model: str) -> None:
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+            **self.params,
+        }
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        try:
+            async with httpx.AsyncClient(
+                transport=self.transport, timeout=self.timeout, headers=headers
+            ) as client:
+                await client.post(f"{self.base_url}/chat/completions", json=payload)
+        except Exception:  # noqa: BLE001 - a warm-up must never break a turn
+            pass
 
     async def request_orders(self, state: GameState, dossier: Dossier) -> CommanderOrders:
         messages = [

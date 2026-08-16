@@ -63,3 +63,24 @@ async def test_mixed_llm_and_scripted_commanders():
     assert all(o.posture == "defend" for o in all_orders["pavlov"].orders)
     # kluge's scripted advance produced orders for all four of his corps
     assert len(all_orders["kluge"].orders) == 4
+
+
+async def test_orders_are_not_gathered_from_a_cold_model():
+    # The fan-out below is 9 simultaneous requests. Sending them into a model
+    # that is still loading is what made turn 1 cost a repair for nearly every
+    # commander, so the warm-up has to happen before the gather, not inside it.
+    state = load_scenario(DATA_DIR)
+    dossiers = load_dossiers(DATA_DIR)
+    seen = []
+
+    def responder(request):
+        body = json.loads(request.content)
+        seen.append(body)
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": json.dumps(guderian_payload())}}]
+        })
+
+    client = LMStudioClient(model="test-model", transport=httpx.MockTransport(responder))
+    await gather_orders(state, dossiers, client, {"guderian"}, {})
+    assert seen[0].get("max_tokens") == 1, "first request should be the warm-up"
+    assert len(seen) == 2

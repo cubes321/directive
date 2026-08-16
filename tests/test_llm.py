@@ -219,3 +219,56 @@ async def test_transcripts_are_logged(tmp_path):
     logged = json.loads(logs[0].read_text(encoding="utf-8"))
     assert logged["commander"] == "guderian"
     assert logged["request"]["messages"]
+
+
+async def test_warm_up_sends_one_cheap_request_per_distinct_model():
+    # LM Studio JIT-loads a model on first use. A cold model answers with
+    # usage.completion_tokens > 0 but EMPTY content and empty reasoning_content,
+    # so _chat returns "" - observed costing a repair round-trip on 8 of 9
+    # commanders in turn 1 of every game against qwen/qwen3.5-9b.
+    seen = []
+
+    def responder(request):
+        seen.append(json.loads(request.content))
+        return chat_response(valid_payload())
+
+    client = make_client(responder, models={"staff": "other-model", "hoth": "test-model"})
+    await client.warm_up()
+    assert {r["model"] for r in seen} == {"test-model", "other-model"}
+    assert all(r["max_tokens"] == 1 for r in seen), "warm-up must not generate a reply"
+
+
+async def test_warm_up_is_a_no_op_once_the_models_are_resident():
+    seen = []
+
+    def responder(request):
+        seen.append(json.loads(request.content))
+        return chat_response(valid_payload())
+
+    client = make_client(responder)
+    await client.warm_up()
+    await client.warm_up()
+    assert len(seen) == 1
+
+
+async def test_warm_up_carries_the_configured_params():
+    # Without reasoning_effort the warm-up itself would think, which on a cold
+    # 9b is exactly the multi-second stall it exists to absorb.
+    seen = []
+
+    def responder(request):
+        seen.append(json.loads(request.content))
+        return chat_response(valid_payload())
+
+    client = make_client(responder, params={"reasoning_effort": "none"})
+    await client.warm_up()
+    assert seen[0]["reasoning_effort"] == "none"
+
+
+async def test_warm_up_never_raises_when_the_backend_is_down():
+    # A convenience must not become a new way for the game to fail to start.
+    # The real request that follows still surfaces the error loudly.
+    def responder(request):
+        raise httpx.ConnectError("connection refused")
+
+    await make_client(responder).warm_up()  # must not raise

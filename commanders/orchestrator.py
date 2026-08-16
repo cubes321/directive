@@ -24,6 +24,10 @@ async def gather_orders(
     scripted: dict[str, tuple[str, str | None]],
 ) -> dict[str, CommanderOrders]:
     llm_ids = sorted(llm_commanders)
+    # Never fan out into a model that is still loading: a mid-load reply comes
+    # back empty and costs every commander a repair round-trip. No-op after the
+    # first turn, and silent if the backend is down.
+    await client.warm_up()
     llm_results = await asyncio.gather(
         *(client.request_orders(state, dossiers[cid]) for cid in llm_ids)
     )
