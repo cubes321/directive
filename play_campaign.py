@@ -43,6 +43,14 @@ BOCK_DIRECTIVES = {
 }
 
 
+def dispatch_label(dossiers: dict, commander: str) -> str:
+    """Who a dispatch is from. The stream carries "staff" every turn and "okh" on
+    an objective event; neither has a dossier, so indexing dossiers directly
+    crashed this runner on turn 1 of every game."""
+    dossier = dossiers.get(commander)
+    return f"{dossier.name} ({dossier.side})" if dossier else commander.upper()
+
+
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--turns", type=int, default=3)
@@ -65,8 +73,7 @@ async def main() -> None:
         print(f"\n{'=' * 60}\nTURN {turn_no} - {campaign.state.date.isoformat()}\n{'=' * 60}")
         result = await campaign.play_turn(BOCK_DIRECTIVES)
         for d in result.dispatches:
-            side = campaign.dossiers[d["commander"]].side
-            print(f"\n--- {campaign.dossiers[d['commander']].name} ({side}) ---")
+            print(f"\n--- {dispatch_label(campaign.dossiers, d['commander'])} ---")
             print(d["text"])
         if result.report.combats:
             print("\nBATTLES:")
