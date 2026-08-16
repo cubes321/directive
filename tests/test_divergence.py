@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from commanders.briefing import build_briefing
-from commanders.divergence import bucket_for, parse_staff_options, score_transcript
+from commanders.divergence import bucket_for, parse_staff_options, score_transcript, summarize
 from engine.scenario import load_scenario
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -246,3 +246,20 @@ def test_falls_back_to_final_orders_when_attempts_is_an_empty_list():
     )
     assert buckets == Counter({"first": 1, "middle": 1, "hold": 1})
     assert unscored == 0
+
+
+def test_summarize_groups_by_commander_and_totals_under_all():
+    state = load_scenario(DATA_DIR)
+    aggressive = _json.dumps({"orders": [
+        {"corps_id": "xxiv_pz", "posture": "attack", "objective": "baranovichi"},
+    ]})
+    passive = _json.dumps({"orders": [
+        {"corps_id": "xxxix_pz", "posture": "defend", "objective": None},
+    ]})
+    rows = summarize([
+        _transcript(state, "guderian", attempts=[{"response": aggressive}]),
+        _transcript(state, "hoth", attempts=[{"response": passive}]),
+    ])
+    assert rows["guderian"][0] == Counter({"first": 1})
+    assert rows["hoth"][0] == Counter({"hold": 1})
+    assert rows["ALL"][0] == Counter({"first": 1, "hold": 1})

@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
+from collections.abc import Iterable
 
 Option = tuple[str, str | None]  # (posture, objective region id)
 
@@ -145,3 +146,19 @@ def score_transcript(transcript: dict) -> tuple[Counter, int]:
     # another corps that got nothing.
     unscored += sum(1 for corps_id in options if corps_id not in seen)
     return buckets, unscored
+
+
+def summarize(transcripts: Iterable[dict]) -> dict[str, tuple[Counter, int]]:
+    """commander id -> (bucket counts, unscored), plus the total under "ALL"."""
+    rows: dict[str, tuple[Counter, int]] = {}
+    total: Counter = Counter()
+    total_unscored = 0
+    for transcript in transcripts:
+        commander = transcript["commander"]
+        buckets, unscored = score_transcript(transcript)
+        prior, prior_unscored = rows.get(commander, (Counter(), 0))
+        rows[commander] = (prior + buckets, prior_unscored + unscored)
+        total += buckets
+        total_unscored += unscored
+    rows["ALL"] = (total, total_unscored)
+    return rows
