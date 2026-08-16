@@ -88,6 +88,21 @@ def test_the_decrypt_renders_regions_with_ids_and_names_the_corps():
     assert any("reserve" in ln.lower() for ln in lines)
 
 
+def test_an_advance_reads_as_advance_to_the_region():
+    # The briefing's own staff options say "advance to X"; interpolating the
+    # raw posture gave "advance Orsha", which reads as a different verb.
+    # "attack X" is already grammatical and must stay as it is.
+    state, dossiers = _state_with_soviet_orders()
+    state.last_orders["pavlov"]["orders"] = [
+        {"corps_id": "sov_3a", "posture": "advance", "objective": "suwalki"},
+        {"corps_id": "sov_10a", "posture": "attack", "objective": "suwalki"},
+    ]
+    hit = intercept(state, dossiers, "axis", random.Random(1), chance=1.0)
+    lines = format_intel_lines(state, hit)
+    assert any("advance to Suwalki [id: suwalki]" in ln for ln in lines)
+    assert any("attack Suwalki [id: suwalki]" in ln for ln in lines)
+
+
 def test_the_decrypt_survives_a_corps_that_has_since_been_destroyed():
     # last_orders is a week old; a corps in it may be gone. Render the id
     # rather than crashing on a missing name.

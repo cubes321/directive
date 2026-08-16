@@ -82,7 +82,10 @@ def format_intel_lines(state: GameState, hit: dict) -> list[str]:
         if posture in ("attack", "advance") and objective:
             region = state.game_map.regions.get(objective)
             where = f"{region.name} [id: {objective}]" if region else objective
-            lines.append(f"    - {who}: {posture} {where}")
+            # "advance to X" (as the briefing's own staff options phrase it),
+            # but "attack X" - the raw posture only reads right for one of them.
+            verb = "advance to" if posture == "advance" else posture
+            lines.append(f"    - {who}: {verb} {where}")
         elif posture == "reserve":
             lines.append(f"    - {who}: hold in reserve")
         else:
