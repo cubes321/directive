@@ -115,3 +115,28 @@ def test_system_prompt_still_contains_the_order_rules():
 def test_order_schema_is_strict_about_postures():
     posture_schema = ORDER_SCHEMA["schema"]["properties"]["orders"]["items"]["properties"]["posture"]
     assert set(posture_schema["enum"]) == {"attack", "advance", "defend", "reserve"}
+
+
+def test_axis_dispatch_names_von_bock_as_its_recipient():
+    # The prompt used to say only "your report to the theater commander" -
+    # nameless, rankless and side-neutral. With nothing anchoring the German
+    # side, 9b invented a salutation per turn from nine different forms and
+    # twice reached for the Eastern Front default: "Comrade Field Marshal".
+    prompt = build_system_prompt(_dossier())
+    assert "von Bock" in prompt
+
+
+def test_soviet_dispatch_names_a_red_army_recipient_instead():
+    prompt = build_system_prompt(_soviet())
+    assert "Stavka" in prompt
+    assert "von Bock" not in prompt
+
+
+def test_commanders_are_told_the_head_of_state_is_not_reading_this():
+    # Separate defect, same missing slot: commanders opened "Mein Fuehrer" and
+    # "Stalin!", reporting past the player - who IS the recipient - to the head
+    # of state. Invoking them in the body is good drama and stays allowed.
+    axis = build_system_prompt(_dossier())
+    soviet = build_system_prompt(_soviet())
+    assert "not writing to" in axis
+    assert "not writing to" in soviet

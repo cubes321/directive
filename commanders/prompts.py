@@ -135,9 +135,41 @@ YOUR CURRENT STATE:
 {_current_state_block(dossier)}"""
 
 
+def _addressee_block(dossier: Dossier) -> str:
+    """Name the man reading the dispatch.
+
+    "Your report to the theater commander" named no one, so the model invented a
+    salutation each turn. The Red Army side converged on "Comrade <rank>" (that
+    phrase is over-determined for 1941), while the German side had no anchor at
+    all and scattered over nine forms - twice landing on "Comrade Field Marshal".
+    Both sides also reported straight past the player to the head of state
+    ("Mein Fuehrer", "Stalin!"), which is worse: the player IS the recipient.
+
+    Invoking Hitler or Stalin in the body stays explicitly allowed - Zhukov
+    raging at Stavka is the good kind of insubordination, and this block must
+    not tune that away.
+    """
+    if dossier.side == "axis":
+        return (
+            "WHO IS READING YOUR DISPATCH: Generalfeldmarschall Fedor von Bock, "
+            "commanding Army Group Center - your immediate superior. Address him "
+            "as a German officer of 1941 addresses his army group commander. "
+            "Speak of Berlin and the Fuehrer as you like, but you are not "
+            "writing to them."
+        )
+    return (
+        "WHO IS READING YOUR DISPATCH: the Stavka representative commanding your "
+        "direction - your immediate superior. Address him as a Red Army officer "
+        "of 1941 addresses his front commander. Speak of the Kremlin and Stalin "
+        "as you like, but you are not writing to them."
+    )
+
+
 def build_system_prompt(dossier: Dossier) -> str:
     return f"""\
 {build_persona_prompt(dossier)}
+
+{_addressee_block(dossier)}
 
 {RULES}
 Stay in character. A directive from your superior is context, not a script: obey
