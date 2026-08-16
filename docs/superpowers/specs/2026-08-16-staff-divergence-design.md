@@ -48,6 +48,49 @@ its staff never raised. Observed in real play — `xlvii_pz` ordered to advance 
 
 The originally-scoped metric is recoverable: divergence = 100% − `first`.
 
+### What `off-menu` deliberately excludes
+
+Being the strongest positive signal makes `off-menu` the bucket most worth
+defending, and the first implementation leaked three things into it that are
+not independence at all — between 44% and 77% of the bucket, measured on the
+runs below. Anyone touching the matching in `bucket_for` must keep all three
+out:
+
+1. **The other move verb.** `attack` and `advance` are one order to the engine:
+   `engine/turn.py:138` is the only place either posture is read and it reads
+   them jointly. So "advance to Minsk" against a staff option of "attack Minsk"
+   is compliance. Scored apart, the metric could be defeated by exactly the
+   collapse it exists to detect — a model that always takes option #1 but
+   writes the other verb would score 0% `first` and 100% `off-menu`. Matching
+   is therefore on `(move-class, objective)`.
+2. **The other word for sitting still.** `defend` and `reserve` are the same
+   physical inaction, differing only in recovery (`engine/turn.py:268`), and
+   which one the staff offers is a pure function of that corps's own supply and
+   organization (`commanders/briefing.py:110`). A corps told to sit still must
+   never land in the independence bucket because of its own supply level: a
+   hold-posture order scores `hold` whenever the menu ends in a hold option.
+   The engine ignores `objective` for those postures, so a stray one (observed:
+   `sov_13a`, sitting in Minsk, ordered "defend / minsk") cannot change that.
+3. **An objective the corps cannot reach.** That order is rejected by
+   `validate_orders` and forced to `defend` by `salvage_orders` — a model
+   failure scored as brilliance. The legal set is already in the briefing (the
+   `In range this week:` line, read via its `[id: ...]` markers so the
+   `(FULL - no room)` annotation is ignored — a full region is still a legal
+   objective, the move merely bounces). Such orders go to `unscored`, not to a
+   fifth bucket: validity is `analyze_logs.py`'s beat, and `unscored` already
+   means "this order told us nothing about the model's character".
+
+### The menu shape is endogenous — report it
+
+`middle` is only reachable on a three-long menu, and only ~27% of briefings
+have one. Worse, the shape is itself an output of model behaviour: a model that
+advances reaches contact and *earns* three-long attack menus, while a passive
+one keeps drawing two-long ones — so a run-to-run comparison is partly
+circular. `analyze_divergence.py` therefore prints the run's menu-shape mix
+above the table (`menu shape (120 corps-briefings) 1 option: 4, 2 options: 83,
+3 options: 33`), so a reader can see whether two runs are comparable before
+reading anything into the difference.
+
 ## Decisions taken
 
 1. **Per commander, not pooled.** Personality is per persona; a cautious Kluge
@@ -87,9 +130,17 @@ Option = tuple[str, str | None]          # (posture, objective_id)
 def parse_staff_options(briefing: str) -> dict[str, list[Option]]:
     """corps_id -> its options, in the order the briefing listed them."""
 
-def bucket_for(order: dict, options: list[Option]) -> str:
+def parse_in_range(briefing: str) -> dict[str, set[str]]:
+    """corps_id -> the regions it may legally be sent to this week.
+    Absent (not empty) when the briefing carried no "In range" line."""
+
+def bucket_for(order: dict, options: list[Option],
+               in_range: set[str] | None = None) -> str:
     """order is {corps_id, posture, objective}.
-    Returns 'first' | 'middle' | 'hold' | 'off-menu'."""
+    Returns 'first' | 'middle' | 'hold' | 'off-menu' | 'unscored'."""
+
+def menu_shapes(transcripts) -> Counter:
+    """options offered -> how many corps-briefings offered exactly that many."""
 
 def score_transcript(transcript: dict) -> tuple[dict[str, int], int]:
     """(bucket counts, unscored_count) for one commander-turn."""
@@ -139,6 +190,7 @@ Format only — the numbers below are invented, not measured.
 
 ```
 run-20260816-170643  qwen/qwen3.5-9b
+menu shape (119 corps-briefings) 1 option: 5, 2 options: 76, 3 options: 38
 commander      n   first  middle    hold  off-menu
 guderian      12    33%      25%      8%       33%
 kluge         12    17%      33%     42%        8%
@@ -178,7 +230,7 @@ TDD, against the mocked-transport-free pure functions:
 
 `superpowers:writing-plans` for the implementation plan.
 
-## Baseline (measured 2026-08-16)
+## Baseline (re-measured 2026-08-16, after the off-menu fix)
 
 Measured by running `analyze_divergence.py` against the three same-day runs.
 Sample size: 36 commander-turns per run (9 commanders × 4 turns each); the
@@ -188,13 +240,31 @@ corps. Per-commander rows (not reproduced here) rest on roughly a dozen
 orders each and are indicative rather than settled — treat only the `ALL`
 row as a run-level signal.
 
-| run | model | n | first | middle | hold | off-menu | unscored |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `run-20260816-164524` | qwen3.5-4b | 113 | 22% | 8% | 32% | 38% | 8 |
-| `run-20260816-165131` | qwen/qwen3.5-9b | 120 | 33% | 9% | 12% | 45% | 0 |
-| `run-20260816-170643` | qwen/qwen3.5-9b (post addressee fix) | 119 | 34% | 12% | 13% | 40% | 0 |
+An earlier version of this table (4b 22/8/32/38, 9b 33/9/12/45, 9b-post
+34/12/13/40) was produced by the buggy scoring described under "What
+`off-menu` deliberately excludes" and is void: it showed the 4b model as the
+*more* independent of the two, which was an artifact of it writing the wrong
+move verb and naming unreachable regions more often.
 
-The 4b run is the only one of the three with non-zero `unscored` (8, spread
-across `hoth`, `kluge`, and `strauss`) — its first attempts failed to parse
-or targeted corps with no briefed options more often than either 9b run,
-both of which scored `unscored: 0`.
+| run | model | menu shape (1 / 2 / 3 options) | n | first | middle | hold | off-menu | unscored |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `run-20260816-164524` | qwen3.5-4b | 4 / 83 / 33 | 112 | 29% | 9% | 48% | 14% | 9 |
+| `run-20260816-165131` | qwen/qwen3.5-9b | 6 / 82 / 32 | 119 | 47% | 9% | 21% | 23% | 1 |
+| `run-20260816-170643` | qwen/qwen3.5-9b (post addressee fix) | 5 / 76 / 38 | 116 | 41% | 12% | 23% | 23% | 3 |
+
+The reading reverses. The 4b model is not more independent, it is *more
+passive*: 48% `hold` against the 9b's 21–23%, and only 14% `off-menu` against
+23%. The 9b runs take the staff's lead suggestion far more often (47% and 41%
+vs 29%) but, when they leave the menu, leave it for somewhere they can
+actually go.
+
+`unscored` still separates the models the same way, and for the reasons the
+counter exists: 9 for the 4b run against 1 and 3 for the 9b runs — first
+attempts that would not parse, orders for corps with no briefed options, and
+(the new contributor) objectives out of reach. Six of the 4b's nine are
+"advance to the region I am already standing in", which `validate_orders`
+accepts but the engine discards as a no-op; they belong in `unscored` either
+way, since they tell us nothing about the commander's character.
+
+The menu-shape mixes are close enough across the three runs (27–32% three-long)
+that the `middle` column is comparable between them. That will not always hold.
