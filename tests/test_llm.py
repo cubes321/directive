@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 import httpx
@@ -6,6 +7,7 @@ import pytest
 
 from commanders.dossier import load_dossiers
 from commanders.llm import LMStudioClient, LMStudioUnavailable
+from commanders.prompts import ORDER_SCHEMA, dynamic_order_schema
 from engine.scenario import load_scenario
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -272,3 +274,216 @@ async def test_warm_up_never_raises_when_the_backend_is_down():
         raise httpx.ConnectError("connection refused")
 
     await make_client(responder).warm_up()  # must not raise
+
+
+# --------------------------------------------------------------------------
+# The per-turn order schema. Spec:
+# docs/superpowers/specs/2026-08-22-dynamic-order-schema.md
+# --------------------------------------------------------------------------
+
+
+def _sent_schema(call: dict) -> dict | None:
+    return call.get("response_format", {}).get("json_schema")
+
+
+def _is_dynamic(call: dict) -> bool:
+    schema = _sent_schema(call)
+    return bool(schema) and "oneOf" in schema["schema"]["properties"]["orders"]["items"]
+
+
+async def test_the_orders_request_carries_a_schema_built_from_this_turns_state():
+    state, dossier = setup_state()
+    calls = []
+
+    def responder(request):
+        calls.append(json.loads(request.content))
+        return chat_response(valid_payload())
+
+    client = make_client(responder)
+    await client.request_orders(state, dossier)
+    assert _sent_schema(calls[0]) == dynamic_order_schema(state, "guderian")
+    branches = _sent_schema(calls[0])["schema"]["properties"]["orders"]["items"]["oneOf"]
+    assert len(branches) == 6  # two per living corps
+    # and the enums really are this turn's reach, not the whole map
+    enums = [b["properties"]["objective"].get("enum", []) for b in branches]
+    assert all("moscow" not in enum for enum in enums)
+
+
+async def test_the_schema_follows_the_state_rather_than_being_fixed_once():
+    # Per briefing, not per process: a corps lost last week has to disappear
+    # from this week's grammar, or the model can still be handed its id.
+    state, dossier = setup_state()
+    state.corps["xxiv_pz"].strength = 0
+    calls = []
+
+    def responder(request):
+        calls.append(json.loads(request.content))
+        payload = valid_payload()
+        payload["orders"] = payload["orders"][1:]
+        return chat_response(payload)
+
+    client = make_client(responder)
+    await client.request_orders(state, dossier)
+    orders_block = _sent_schema(calls[0])["schema"]["properties"]["orders"]
+    ids = {b["properties"]["corps_id"]["const"] for b in orders_block["items"]["oneOf"]}
+    assert ids == {"xlvi_pz", "xlvii_pz"}
+    assert orders_block["minItems"] == orders_block["maxItems"] == 2
+
+
+async def test_the_repair_round_trip_reuses_the_same_dynamic_schema():
+    state, dossier = setup_state()
+    calls = []
+
+    def responder(request):
+        calls.append(json.loads(request.content))
+        if len(calls) == 1:
+            bad = valid_payload()
+            bad["orders"][0]["objective"] = "moscow"  # far out of reach
+            return chat_response(bad)
+        return chat_response(valid_payload())
+
+    client = make_client(responder)
+    await client.request_orders(state, dossier)
+    assert len(calls) == 2
+    assert _sent_schema(calls[1]) == _sent_schema(calls[0])
+
+
+async def test_a_backend_that_rejects_the_dynamic_schema_falls_back_to_the_static_one():
+    # A cloud backend that refuses oneOf/const-heavy schemas must not brick the
+    # campaign: retry that one call with the schema that has always worked.
+    state, dossier = setup_state()
+    calls = []
+
+    def responder(request):
+        call = json.loads(request.content)
+        calls.append(call)
+        if _is_dynamic(call):
+            return httpx.Response(400, json={"error": {"message": "oneOf is not supported"}})
+        return chat_response(valid_payload())
+
+    client = make_client(responder)
+    orders = await client.request_orders(state, dossier)  # must not raise
+    assert [_is_dynamic(c) for c in calls] == [True, False]
+    assert _sent_schema(calls[1]) == ORDER_SCHEMA
+    assert orders.orders[0].objective == "baranovichi"
+
+
+async def test_the_schema_fallback_says_loudly_which_schema_was_used(caplog):
+    state, dossier = setup_state()
+
+    def responder(request):
+        if _is_dynamic(json.loads(request.content)):
+            return httpx.Response(400, json={"error": {"message": "oneOf is not supported"}})
+        return chat_response(valid_payload())
+
+    client = make_client(responder)
+    with caplog.at_level(logging.WARNING):
+        await client.request_orders(state, dossier)
+    text = " ".join(r.getMessage() for r in caplog.records)
+    assert "static" in text.lower()
+    assert "oneOf is not supported" in text  # the backend's own explanation
+
+
+async def test_the_schema_fallback_is_recorded_in_the_transcript(tmp_path):
+    # Offline analysis has to be able to tell which grammar produced a run;
+    # a silent degrade would show up as the model getting worse.
+    state, dossier = setup_state()
+
+    def responder(request):
+        if _is_dynamic(json.loads(request.content)):
+            return httpx.Response(400, json={"error": {"message": "oneOf is not supported"}})
+        return chat_response(valid_payload())
+
+    client = make_client(responder, log_dir=tmp_path)
+    await client.request_orders(state, dossier)
+    logged = json.loads(next(iter(tmp_path.glob("*.json"))).read_text(encoding="utf-8"))
+    assert logged["schema"] == "static-fallback"
+
+
+async def test_a_normal_run_records_that_the_dynamic_schema_was_used(tmp_path):
+    state, dossier = setup_state()
+    client = make_client(lambda r: chat_response(valid_payload()), log_dir=tmp_path)
+    await client.request_orders(state, dossier)
+    logged = json.loads(next(iter(tmp_path.glob("*.json"))).read_text(encoding="utf-8"))
+    assert logged["schema"] == "dynamic"
+
+
+async def test_a_backend_that_rejects_both_schemas_still_raises():
+    state, dossier = setup_state()
+    calls = []
+
+    def responder(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(400, json={"error": {"message": "json_schema unsupported"}})
+
+    client = make_client(responder)
+    with pytest.raises(LMStudioUnavailable) as excinfo:
+        await client.request_orders(state, dossier)
+    assert "400" in str(excinfo.value)
+    assert len(calls) == 2  # the dynamic request, then one static retry - no more
+
+
+async def test_a_transient_4xx_does_not_trigger_the_schema_fallback():
+    # 429 and 408 are per-request and say nothing about the schema; they degrade
+    # to hold-orders exactly as before, still under the per-turn grammar.
+    state, dossier = setup_state()
+    calls = []
+
+    def responder(request):
+        calls.append(json.loads(request.content))
+        return httpx.Response(429, text="slow down")
+
+    client = make_client(responder)
+    orders = await client.request_orders(state, dossier)
+    assert all(o.posture == "defend" for o in orders.orders)
+    assert all(_is_dynamic(c) for c in calls)
+
+
+async def test_an_unreachable_server_is_not_retried_with_a_different_schema():
+    # No schema fixes a refused connection; a retry would only double the wait
+    # before the turn stops.
+    state, dossier = setup_state()
+    calls = []
+
+    def responder(request):
+        calls.append(request)
+        raise httpx.ConnectError("connection refused")
+
+    client = make_client(responder)
+    with pytest.raises(LMStudioUnavailable):
+        await client.request_orders(state, dossier)
+    assert len(calls) == 1
+
+
+async def test_a_commander_with_no_living_corps_is_never_sent_to_the_model():
+    # There is no schema to build (an empty oneOf matches nothing) and nothing
+    # to ask. Today a wiped-out commander still burned one call every turn for
+    # the rest of the campaign.
+    state, dossier = setup_state()
+    for corps in state.corps_for("guderian"):
+        corps.strength = 0
+    calls = []
+
+    def responder(request):
+        calls.append(json.loads(request.content))
+        return chat_response(valid_payload())
+
+    client = make_client(responder)
+    orders = await client.request_orders(state, dossier)
+    assert calls == []
+    assert orders.commander == "guderian"
+    assert orders.orders == ()
+
+
+async def test_conversational_requests_still_carry_no_schema():
+    # request_text serves staff reports and commander conversations. A schema
+    # there would push prose toward order-JSON; it is deliberately absent.
+    seen = []
+
+    def responder(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "Understood."}}]})
+
+    client = make_client(responder)
+    await client.request_text([{"role": "user", "content": "Report."}])
+    assert "response_format" not in seen[0]

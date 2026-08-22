@@ -88,7 +88,7 @@ def _order_errors(
         # only what is illegal reads as "you cannot move", and a cautious
         # commander answers the repair prompt by dropping the advance instead of
         # taking an intermediate bound - observed in play, for four turns running.
-        in_range, options = _reach_options(corps, game_map, control, weather)
+        in_range, options = reach_options(corps, game_map, control, weather)
         if order.objective is None:
             return [
                 f"{order.corps_id}: posture '{order.posture}' needs an objective ({options})"
@@ -103,12 +103,14 @@ def _order_errors(
     return []
 
 
-def _reach_options(
+def reach_options(
     corps: Corps, game_map: GameMap, control: dict[str, str], weather: str
 ) -> tuple[set[str], str]:
     """Where this corps can legally go this turn, and that same set phrased for a
     repair prompt. One source of truth so a rejection can never name a
-    destination the validator would then refuse."""
+    destination the validator would then refuse - and, since it is public, so
+    the objective enum of the per-turn order schema cannot disagree with the
+    validator either (commanders/prompts.py::dynamic_order_schema)."""
     enemy_held = {r for r, side in control.items() if side != corps.side}
     in_range = reachable(
         game_map, corps.location, movement_points(corps, weather), blocked=enemy_held

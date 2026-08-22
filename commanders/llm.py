@@ -4,6 +4,12 @@ Flow per commander per turn:
   briefing -> chat completion (json_schema structured output) -> parse ->
   validate -> [one repair round-trip quoting the errors] -> fallback orders.
 
+The schema is built per request from the same state as the briefing
+(prompts.py::dynamic_order_schema), so it can name this commander's corps and
+their reachable objectives; a backend that refuses it degrades to the static
+ORDER_SCHEMA rather than stopping the turn. It narrows what a conforming
+backend can emit - validate_orders remains the authority.
+
 A server that cannot be reached at all raises LMStudioUnavailable (the turn
 cannot be ended); a slow or incoherent model degrades to fallback "hold"
 orders instead. Full transcripts can be logged to disk for prompt debugging.
@@ -13,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import time
 from pathlib import Path
@@ -21,7 +28,7 @@ import httpx
 
 from commanders.briefing import build_briefing
 from commanders.dossier import Dossier
-from commanders.prompts import ORDER_SCHEMA, build_system_prompt
+from commanders.prompts import ORDER_SCHEMA, build_system_prompt, dynamic_order_schema
 from engine.orders import CommanderOrders, fallback_orders, salvage_orders, validate_orders
 from engine.state import GameState
 
@@ -29,9 +36,20 @@ DEFAULT_BASE_URL = "http://localhost:1234/v1"
 DEFAULT_TIMEOUT = 300.0
 DEFAULT_MAX_CONCURRENCY = 3
 
+logger = logging.getLogger(__name__)
+
 
 class LMStudioUnavailable(RuntimeError):
-    """The LM Studio server could not be reached at all."""
+    """The LM Studio server could not be reached at all.
+
+    ``status_code`` is the HTTP status when the server answered and rejected the
+    request, and None when it could not be reached; the orders path uses that to
+    tell "this backend refuses this request body" from "there is no backend".
+    """
+
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class LMStudioClient:
@@ -121,10 +139,23 @@ class LMStudioClient:
             pass
 
     async def request_orders(self, state: GameState, dossier: Dossier) -> CommanderOrders:
+        if not [c for c in state.corps_for(dossier.id) if not c.is_destroyed]:
+            # Nothing to order, and no grammar to build: an empty oneOf is a
+            # schema nothing can satisfy. No transcript either - analyze_logs
+            # tallies model behavior, and a call that never happened is not a
+            # data point.
+            return CommanderOrders(
+                commander=dossier.id,
+                orders=[],
+                dispatch="(No formations remain under this command.)",
+            )
         messages = [
             {"role": "system", "content": build_system_prompt(dossier)},
             {"role": "user", "content": build_briefing(state, dossier.id)},
         ]
+        # Built from the same state as the briefing, so the grammar and the
+        # situation the commander is reasoning over can never disagree.
+        schema = dynamic_order_schema(state, dossier.id)
         corps_list = list(state.corps.values())
         transcript: dict = {"commander": dossier.id, "turn": state.turn, "attempts": []}
 
@@ -132,8 +163,9 @@ class LMStudioClient:
         last_parsed: CommanderOrders | None = None
         outcome = "fallback"
         for attempt in (1, 2):
-            request_payload = self._payload(messages, self._model_for(dossier.id))
-            content = await self._chat(request_payload, role=dossier.id)
+            content, request_payload, schema = await self._orders_chat(
+                messages, dossier.id, schema
+            )
             transcript["attempts"].append({"response": content})
             transcript["request"] = request_payload  # last request sent
 
@@ -168,6 +200,11 @@ class LMStudioClient:
         if result is None:
             result = fallback_orders(dossier.id, corps_list)
         transcript["outcome"] = outcome
+        # Which grammar actually produced this turn. A silent degrade to the
+        # static schema would otherwise read, in the logs, as the model getting
+        # worse. (dynamic_order_schema always returns a fresh dict, so identity
+        # with ORDER_SCHEMA means the degrade in _orders_chat fired.)
+        transcript["schema"] = "static-fallback" if schema is ORDER_SCHEMA else "dynamic"
         transcript["orders"] = result.to_dict()
         self._log(transcript, dossier.id, state.turn)
         return result
@@ -185,12 +222,45 @@ class LMStudioClient:
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
         return content
 
-    def _payload(self, messages: list[dict], model: str) -> dict:
+    async def _orders_chat(
+        self, messages: list[dict], commander: str, schema: dict
+    ) -> tuple[str, dict, dict]:
+        """One orders request. Returns (content, the payload actually sent, the
+        schema actually used).
+
+        A backend that rejects the per-turn schema outright - a cloud provider
+        that will not take oneOf/const, say - answers with a non-transient 4xx,
+        which normally stops the turn. That would brick every campaign on such a
+        backend, so degrade instead: retry the same call once with the static
+        ORDER_SCHEMA, which every OpenAI-compatible server has accepted, and
+        raise only if that fails too. Loudly, because the run's compliance
+        numbers mean something different afterwards.
+        """
+        payload = self._payload(messages, self._model_for(commander), schema)
+        try:
+            return await self._chat(payload, role=commander), payload, schema
+        except LMStudioUnavailable as e:
+            # status_code None means the server was never reached; no schema
+            # fixes that, and a second attempt only doubles the wait.
+            if e.status_code is None or schema is ORDER_SCHEMA:
+                raise
+            logger.warning(
+                "%s: the server rejected the per-turn order schema (HTTP %s: %s); "
+                "retrying with the static ORDER_SCHEMA. Orders this turn are "
+                "constrained only by the validator.",
+                commander,
+                e.status_code,
+                e,
+            )
+            payload = self._payload(messages, self._model_for(commander), ORDER_SCHEMA)
+            return await self._chat(payload, role=commander), payload, ORDER_SCHEMA
+
+    def _payload(self, messages: list[dict], model: str, schema: dict) -> dict:
         return {
             "model": model,
             "messages": messages,
             "temperature": self.temperature,
-            "response_format": {"type": "json_schema", "json_schema": ORDER_SCHEMA},
+            "response_format": {"type": "json_schema", "json_schema": schema},
             **self.params,
         }
 
@@ -233,7 +303,8 @@ class LMStudioClient:
                 raise LMStudioUnavailable(
                     f"The server at {self.base_url} rejected the request "
                     f"(HTTP {code}): {self._error_detail(e.response)}. Check the "
-                    f"model name and parameters in config.toml."
+                    f"model name and parameters in config.toml.",
+                    status_code=code,
                 ) from e
             return ""
         except httpx.ReadTimeout:

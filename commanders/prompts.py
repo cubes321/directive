@@ -7,7 +7,11 @@ user message (built by briefing.py).
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 from commanders.dossier import Dossier
+from engine.orders import reach_options
+from engine.state import GameState
 
 ORDER_SCHEMA = {
     "name": "commander_orders",
@@ -38,6 +42,100 @@ ORDER_SCHEMA = {
         "additionalProperties": False,
     },
 }
+
+def _legal_destinations(state: GameState, corps) -> list[str]:
+    """Every objective ``validate_orders`` would accept from this corps on a
+    moving posture: its reach set, plus staying where it is (``_order_errors``
+    admits ``objective == corps.location``).
+
+    Deliberately NOT ``briefing._staff_options``. Those are capped at
+    MAX_OPTIONS_PER_CORPS and ordered for a human to read; a schema built from
+    them would forbid orders the validator accepts, and every such order would
+    cost a repair round-trip. ``reach_options`` is the validator's own set -
+    the same call ``_order_errors`` makes to phrase its rejections.
+
+    Sorted, because these bytes go into the request body and this codebase
+    never lets set iteration order reach an output.
+    """
+    in_range, _ = reach_options(corps, state.game_map, state.control, state.weather)
+    return sorted(set(in_range) | {corps.location})
+
+
+def _corps_branches(state: GameState, corps) -> list[dict]:
+    """The two shapes an order for this corps may take.
+
+    Properties are generated in the order ``corps_id -> posture -> objective``,
+    which is the whole trick: a constrained decoder picks the branch from what
+    it has already emitted, so the model chooses its posture freely and only
+    then is the objective conditioned on that choice. Reverse the order and the
+    objective would decide the posture instead.
+    """
+    return [
+        {
+            "type": "object",
+            "properties": {
+                "corps_id": {"const": corps.id},
+                "posture": {"type": "string", "enum": ["attack", "advance"]},
+                # A corps with nothing in reach still gets this branch: the enum
+                # is then just its own region, which the validator accepts. An
+                # empty enum would be a branch nothing can satisfy.
+                "objective": {"enum": _legal_destinations(state, corps)},
+            },
+            "required": ["corps_id", "posture", "objective"],
+            "additionalProperties": False,
+        },
+        {
+            "type": "object",
+            "properties": {
+                "corps_id": {"const": corps.id},
+                "posture": {"type": "string", "enum": ["defend", "reserve"]},
+                "objective": {"const": None},
+            },
+            "required": ["corps_id", "posture", "objective"],
+            "additionalProperties": False,
+        },
+    ]
+
+
+def dynamic_order_schema(state: GameState, commander: str) -> dict:
+    """The order schema for ONE commander's turn, built from the same state the
+    briefing is built from.
+
+    ORDER_SCHEMA is static and so can only say "objective is a string or null".
+    Measured against this game's captured briefings, that leaves two constraints
+    unexpressed - the objective's range, and "defend and reserve take no
+    objective" - and they are the model's entire remaining non-compliance.
+    Branching per corps expresses both, because the legal objectives are known
+    at request time.
+
+    This narrows what a conforming backend can emit; it does not replace
+    ``validate_orders``. Enforcement is a *backend* property and LM Studio has
+    been observed not enforcing (fences and renamed keys arrived despite
+    ``strict: true``), so the validator remains the authority and the
+    repair/salvage/fallback ladder stays exactly as it is.
+    """
+    own = sorted(
+        (c for c in state.corps_for(commander) if not c.is_destroyed), key=lambda c: c.id
+    )
+    if not own:
+        raise ValueError(
+            f"{commander} has no living corps: there is nothing to order, and an "
+            f"empty oneOf is a grammar that matches nothing"
+        )
+    # Deep-copied from the static schema so the envelope (name, strict, the
+    # dispatch/reasoning properties, required, additionalProperties) has one
+    # source of truth and cannot drift; only "orders" differs.
+    schema = deepcopy(ORDER_SCHEMA)
+    schema["schema"]["properties"]["orders"] = {
+        "type": "array",
+        "items": {"oneOf": [b for corps in own for b in _corps_branches(state, corps)]},
+        # Coverage - each corps ordered exactly once - is not expressible here;
+        # pinning the count plus validate_orders carries it.
+        "minItems": len(own),
+        "maxItems": len(own),
+    }
+    return schema
+
 
 RULES = """\
 HOW ORDERS WORK (one set of orders per turn; each turn is one week):
