@@ -80,6 +80,26 @@ outside (e.g. telemetry), the engine *builds the data* and a caller *writes it*
   "region FULL") are *prose in the briefing*, never validation errors — because
   WEGO simultaneity can invalidate a start-of-turn fact. Don't harden advice
   into rules.
+- **The order schema's enums come from the validator, never from the briefing.**
+  `dynamic_order_schema` (`commanders/prompts.py`) rebuilds a per-corps `oneOf`
+  every turn; its objective enum is `engine.orders.reach_options` — the same call
+  `_order_errors` makes — plus the corps' own location, which the validator also
+  accepts. `briefing._staff_options` looks like that list and is not: capped at
+  `MAX_OPTIONS_PER_CORPS` and sorted for display, it would *forbid* orders the
+  validator accepts, and any schema/validator disagreement is a guaranteed repair
+  loop. `tests/test_dynamic_schema.py` pins both directions — representable ⇒
+  validates clean, and accepted ⇒ representable — because each direction is blind
+  to the mutations the other catches; check both still bite before trusting a
+  change here. Measured on `qwen/qwen3.5-9b`, 12 turns per arm: 0/108 repairs
+  against 6/100 under the static schema (misspelled region ids, out-of-reach
+  objectives, a movement posture with a null objective).
+- **The schema narrows, the validator decides.** Enforcement is a *backend*
+  property: llama.cpp is airtight, but production logs show LM Studio returning
+  fences and renamed keys despite `strict: true`. Never drop a validation rule
+  because the schema "already covers it", and leave the repair/salvage/fallback
+  ladder alone. A backend that rejects the per-turn schema degrades to the static
+  `ORDER_SCHEMA` and records `schema: static-fallback` in the transcript — which
+  is why `ORDER_SCHEMA` still exists.
 - **Morale is psychological-only.** `dossier.dynamic` feeds the persona *prompt*;
   it never touches combat maths. Keep that boundary.
 - **Derive a mood dial from state, don't integrate activity into it.** `fatigue`
