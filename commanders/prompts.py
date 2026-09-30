@@ -234,8 +234,10 @@ YOUR CURRENT STATE:
 {_current_state_block(dossier)}"""
 
 
-def _addressee_block(dossier: Dossier) -> str:
-    """Name the man reading the dispatch.
+def _addressee_block(dossier: Dossier, reading: str = "dispatch") -> str:
+    """Name the man reading the dispatch - or, with ``reading="signal"``, the
+    unprompted signal or SIGNAL reply, whose prompts left the same slot empty
+    and got "My Lord", "To Commander Busse" and "Field Marshal Bock, Berlin".
 
     "Your report to the theater commander" named no one, so the model invented a
     salutation each turn. The Red Army side converged on "Comrade <rank>" (that
@@ -248,16 +250,17 @@ def _addressee_block(dossier: Dossier) -> str:
     raging at Stavka is the good kind of insubordination, and this block must
     not tune that away.
     """
+    heading = f"WHO IS READING YOUR {reading.upper()}"
     if dossier.side == "axis":
         return (
-            "WHO IS READING YOUR DISPATCH: Generalfeldmarschall Fedor von Bock, "
+            f"{heading}: Generalfeldmarschall Fedor von Bock, "
             "commanding Army Group Center - your immediate superior. Address him "
             "as a German officer of 1941 addresses his army group commander. "
             "Speak of Berlin and the Fuehrer as you like, but you are not "
             "writing to them."
         )
     return (
-        "WHO IS READING YOUR DISPATCH: the Stavka representative commanding your "
+        f"{heading}: the Stavka representative commanding your "
         "direction - your immediate superior. Address him as a Red Army officer "
         "of 1941 addresses his front commander. Speak of the Kremlin and Stalin "
         "as you like, but you are not writing to them."

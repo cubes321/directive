@@ -30,7 +30,7 @@ from commanders.intel import INTEL_CHANCE, format_intel_lines, intercept
 from commanders.intent import soviet_directives
 from commanders.llm import LMStudioClient
 from commanders.orchestrator import gather_orders
-from commanders.prompts import build_persona_prompt
+from commanders.prompts import _addressee_block, build_persona_prompt
 from commanders.records import update_morale, update_track_records
 from commanders.scripted import scripted_orders
 from engine.objectives import advance_objectives, issue_due_objectives
@@ -305,6 +305,7 @@ class Campaign:
         # unbounded in age - handed the model a template to copy.
         system = (
             build_persona_prompt(dossier)
+            + "\n\n" + _addressee_block(dossier, reading="signal")
             + "\n\nYou are sending an UNSOLICITED signal to your theater commander "
             "- he did not ask. Say what is on your mind as this man would: a "
             "warning, a request, a boast, a complaint, or a suggestion. Reply with "
@@ -343,7 +344,10 @@ class Campaign:
                 own_losses, enemy_losses = c["defender_losses"], c["attacker_losses"]
             line = (
                 f"{region}: {'our attack' if we_attacked else 'enemy attack'}, "
-                f"{verdict} (our losses {own_losses}, theirs est. {enemy_losses})"
+                # "strength points", not a bare number: every model up to 122B
+                # read "our losses 41" as forty-one men
+                f"{verdict} (our losses {own_losses} strength points, "
+                f"theirs est. {enemy_losses} strength points)"
             )
             if c["encircled"]:
                 line += "; the defenders were encircled and destroyed"
@@ -393,6 +397,7 @@ class Campaign:
         else:
             system = (
                 build_persona_prompt(dossier)
+                + "\n\n" + _addressee_block(dossier, reading="signal")
                 + "\n\nYou are now in a direct signal exchange with your theater "
                 "commander. This is conversation, not an orders transmission: "
                 "reply in character, in plain prose (no JSON), under 150 words. "

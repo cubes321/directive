@@ -163,18 +163,18 @@ def update_track_records(
             elif won:
                 summary = (
                     f"Attacked {region}: position carried, enemy thrown back "
-                    f"(own losses {combat['attacker_losses']})."
+                    f"(own losses {combat['attacker_losses']} strength points)."
                 )
             elif pocket:
                 summary = (
                     f"Attacked {region}: the defenders are encircled with no line of "
                     f"retreat; the pocket is being reduced (their losses "
-                    f"{combat['defender_losses']}, own {combat['attacker_losses']})."
+                    f"{combat['defender_losses']} strength points, own {combat['attacker_losses']})."
                 )
             else:
                 summary = (
                     f"Attacked {region}: assault repulsed "
-                    f"(own losses {combat['attacker_losses']})."
+                    f"(own losses {combat['attacker_losses']} strength points)."
                 )
             dossiers[commander].add_record(report.turn, summary)
 
@@ -186,16 +186,16 @@ def update_track_records(
             elif won:
                 summary = (
                     f"Defended {region}: forced to retreat "
-                    f"(losses {combat['defender_losses']})."
+                    f"(losses {combat['defender_losses']} strength points)."
                 )
             elif pocket:
                 summary = (
                     f"Encircled at {region}: thrown back with no line of retreat, the "
-                    f"pocket is being reduced (losses {combat['defender_losses']})."
+                    f"pocket is being reduced (losses {combat['defender_losses']} strength points)."
                 )
             else:
                 summary = (
                     f"Defended {region}: held against attack "
-                    f"(losses {combat['defender_losses']})."
+                    f"(losses {combat['defender_losses']} strength points)."
                 )
             dossiers[commander].add_record(report.turn, summary)
