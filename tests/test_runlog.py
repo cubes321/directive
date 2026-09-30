@@ -31,3 +31,34 @@ def test_resolve_log_dir_defaults_to_latest_run_campaign(tmp_path):
 
 def test_resolve_log_dir_falls_back_to_legacy_flat_dir(tmp_path):
     assert resolve_log_dir(None, tmp_path) == tmp_path / "campaign"  # no run dirs yet
+
+
+def test_resolve_log_dir_descends_into_a_named_runs_campaign_dir(tmp_path):
+    # The transcripts live in run-*/campaign/; naming the run itself used to
+    # glob the run dir, find nothing and report an empty tally.
+    run = tmp_path / "run-20260930-064509"
+    (run / "campaign").mkdir(parents=True)
+    assert resolve_log_dir("run-20260930-064509", tmp_path) == run / "campaign"
+
+
+def test_resolve_log_dir_takes_an_existing_path_as_given(tmp_path, monkeypatch):
+    # "logs/run-X/campaign" from the repo root used to become logs/logs/...
+    (tmp_path / "logs" / "run-1" / "campaign").mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    got = resolve_log_dir("logs/run-1/campaign", tmp_path / "logs")
+    assert got.resolve() == (tmp_path / "logs" / "run-1" / "campaign").resolve()
+
+
+def test_analysis_scripts_fail_loudly_on_a_dir_with_no_transcripts(tmp_path):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).parent.parent
+    for script in ("analyze_logs.py", "analyze_failures.py"):
+        done = subprocess.run(
+            [sys.executable, str(root / script), str(tmp_path / "missing")],
+            capture_output=True, text=True, cwd=root,
+        )
+        assert done.returncode != 0, script
+        assert "no commander transcripts" in done.stderr, (script, done.stderr)

@@ -28,12 +28,25 @@ def latest_run_dir(logs_root: Path) -> Path | None:
 
 def resolve_log_dir(arg: str | None, logs_root: Path) -> Path:
     """Where an analysis tool should read transcripts from:
-    - an explicit ``arg`` -> ``logs_root/arg`` (e.g. "eval_guderian" or a
-      specific "run-XXXX/campaign"),
+    - an explicit ``arg`` -> that path if it exists as given (e.g.
+      "logs/run-XXXX/campaign" typed from the repo root), else
+      ``logs_root/arg`` (e.g. "eval_guderian" or "run-XXXX/campaign"); a run
+      directory resolves to its ``campaign`` dir, where the transcripts are,
     - otherwise the latest run's ``campaign`` dir, falling back to the legacy
       flat ``logs_root/campaign`` for logs predating per-run scoping."""
     logs_root = Path(logs_root)
     if arg:
-        return logs_root / arg
+        given = Path(arg)
+        chosen = given if given.is_dir() else logs_root / arg
+        return chosen / "campaign" if (chosen / "campaign").is_dir() else chosen
     latest = latest_run_dir(logs_root)
     return (latest / "campaign") if latest else logs_root / "campaign"
+
+
+def require_transcripts(log_dir: Path, pattern: str = "*.json") -> list[Path]:
+    """The transcripts in ``log_dir``, or exit non-zero saying where it looked.
+    An empty tally for a mistyped path reads exactly like a clean run."""
+    files = sorted(Path(log_dir).glob(pattern))
+    if not files:
+        raise SystemExit(f"no commander transcripts in {log_dir}")
+    return files

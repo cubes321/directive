@@ -5,7 +5,7 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from commanders.runlog import resolve_log_dir
+from commanders.runlog import require_transcripts, resolve_log_dir
 
 log_dir = resolve_log_dir(sys.argv[1] if len(sys.argv) > 1 else None,
                           Path(__file__).parent / "logs")
@@ -14,7 +14,7 @@ per_cmd = defaultdict(Counter)
 empty_per_cmd = Counter()
 nonempty_lengths = []
 
-for f in sorted(log_dir.glob("*.json")):
+for f in require_transcripts(log_dir):
     t = json.loads(f.read_text(encoding="utf-8"))
     cmd = t["commander"]
     per_cmd[cmd][t["outcome"]] += 1
