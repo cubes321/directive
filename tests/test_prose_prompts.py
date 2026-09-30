@@ -196,3 +196,87 @@ def test_a_met_objective_past_its_deadline_reads_as_achieved_not_live():
     line = next(f for f in campaign._staff_facts(TurnReport(turn=6))
                 if "Close the Bialystok-Minsk pocket" in f)
     assert "achieved" in line
+
+
+# --- the staff argues both sides before it decides -------------------------------
+#
+# Wording alone never moved the halt: 29/30 on qwen3.5-9b across weeks 3, 6 and
+# 10, including week 3 with Minsk taken and a 67:1 pocket. What moved it was
+# the decision's shape: a schema that makes the model write the case for
+# pressing on, then the case for halting, and only then the verdict, plus a
+# burden of proof on halting. Verdicts, two runs of 10 per week pooled
+# (press on / consolidate / halt): week 3 19/1/0, week 6 13/7/0, week 10
+# 7/13/0. Schema alone was 8/12/0, 1/19/0, 0/19/1: it traded one fixed
+# verdict for another, which is why the burden text is there.
+
+def _staff_campaign(*replies, status: int = 200) -> tuple[Campaign, list]:
+    captured: list = []
+    campaign = Campaign.new(DATA_DIR)
+    queue = list(replies)
+
+    def respond(request):
+        body = json.loads(request.content)
+        captured.append(body)
+        if status != 200 and "response_format" in body:
+            return httpx.Response(status, json={"error": {"message": "response_format unsupported"}})
+        return httpx.Response(200, json={"choices": [{"message": {"content": queue.pop(0)}}]})
+
+    campaign.client = LMStudioClient(model="test", transport=httpx.MockTransport(respond))
+    return campaign, captured
+
+
+def _assessment(report="Minsk is ours. Recommendation: press on to the Berezina.",
+                verdict="press_on") -> str:
+    return json.dumps({"case_for_pressing_on": "Minsk fell cheaply.",
+                       "case_for_halting": "Molodechno cost 8.",
+                       "recommendation": verdict, "report": report})
+
+
+async def test_the_staff_decides_after_arguing_both_cases():
+    campaign, captured = _staff_campaign(_assessment())
+    await campaign._staff_report(TurnReport(turn=1))
+    fmt = captured[0]["response_format"]
+    assert fmt["type"] == "json_schema"
+    props = fmt["json_schema"]["schema"]["properties"]
+    # the order is the mechanism: the verdict is decoded after both cases
+    assert list(props) == ["case_for_pressing_on", "case_for_halting", "recommendation", "report"]
+    assert props["recommendation"]["enum"] == ["press_on", "consolidate", "halt"]
+
+
+async def test_a_halt_must_name_the_facts_that_force_it():
+    campaign, captured = _staff_campaign(_assessment())
+    await campaign._staff_report(TurnReport(turn=1))
+    system = _system(captured[0])
+    assert "Recommend a halt only where the listed facts show" in system
+
+
+async def test_the_player_sees_only_the_report():
+    campaign, _ = _staff_campaign(_assessment(report="Minsk is ours. Press on."))
+    assert await campaign._staff_report(TurnReport(turn=1)) == "Minsk is ours. Press on."
+
+
+async def test_a_fenced_assessment_is_still_read():
+    # Moonshot's json_schema is not strict: fences and preambles arrive
+    campaign, _ = _staff_campaign("Here it is:\n```json\n" + _assessment(report="Hold.") + "\n```")
+    assert await campaign._staff_report(TurnReport(turn=1)) == "Hold."
+
+
+async def test_a_plain_prose_reply_is_shown_as_it_came():
+    campaign, _ = _staff_campaign("Minsk has fallen. The staff recommends pressing on.")
+    text = await campaign._staff_report(TurnReport(turn=1))
+    assert text == "Minsk has fallen. The staff recommends pressing on."
+
+
+async def test_an_empty_reply_falls_back_to_the_fact_list():
+    campaign, _ = _staff_campaign("")
+    text = await campaign._staff_report(TurnReport(turn=1))
+    assert text.startswith("Weekly staff assessment:")
+
+
+async def test_a_backend_that_refuses_the_schema_still_gets_a_staff_report():
+    # A turn must never fail over the staff report: retry once as plain prose.
+    campaign, captured = _staff_campaign("Minsk has fallen. Press on.", status=400)
+    text = await campaign._staff_report(TurnReport(turn=1))
+    assert text == "Minsk has fallen. Press on."
+    assert ["response_format" in c for c in captured] == [True, False]
+    assert "Reply as JSON" not in _system(captured[1])

@@ -222,6 +222,17 @@ class LMStudioClient:
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
         return content
 
+    async def request_structured(
+        self, messages: list[dict], schema: dict, role: str | None = None
+    ) -> str:
+        """One completion constrained by ``schema``; returns the raw content for
+        the caller to parse. A backend that refuses the schema raises
+        LMStudioUnavailable with its status code - degrading is the caller's
+        call, since only it knows what the unconstrained request should say."""
+        payload = self._payload(messages, self._model_for(role), schema)
+        content = await self._chat(payload, role=role)
+        return re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
     async def _orders_chat(
         self, messages: list[dict], commander: str, schema: dict
     ) -> tuple[str, dict, dict]:

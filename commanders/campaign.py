@@ -14,6 +14,7 @@ keeps the whole campaign playable headlessly in tests.
 from __future__ import annotations
 
 import json
+import logging
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,9 +29,9 @@ from commanders.communique import (
 from commanders.dossier import Dossier, load_dossiers
 from commanders.intel import INTEL_CHANCE, format_intel_lines, intercept
 from commanders.intent import soviet_directives
-from commanders.llm import LMStudioClient
+from commanders.llm import LMStudioClient, LMStudioUnavailable
 from commanders.orchestrator import gather_orders
-from commanders.prompts import _addressee_block, build_persona_prompt
+from commanders.prompts import STAFF_SCHEMA, _addressee_block, build_persona_prompt
 from commanders.records import strength_points, update_morale, update_track_records
 from commanders.scripted import scripted_orders
 from engine.objectives import advance_objectives, issue_due_objectives
@@ -44,6 +45,8 @@ from engine.weather import weather_for_turn
 STARTING_POLITICAL_CAPITAL = 10
 DISMISSAL_BASE_COST = 2
 BENCH_ROLE = "(awaiting command)"
+
+logger = logging.getLogger(__name__)
 
 
 def prose_from_reply(text: str) -> str:
@@ -408,7 +411,7 @@ class Campaign:
         facts = self._staff_facts(report, control_before)
         if self.client is not None:
             # Hardcoded to the German side: a Soviet player gets von Bock's staff.
-            system = (
+            brief = (
                 "You are Generalmajor Hans von Greiffenberg, chief of staff of "
                 "Army Group Center, summer 1941. Write the weekly staff assessment "
                 "for Field Marshal von Bock: dry, precise, professional, under 180 "
@@ -420,16 +423,55 @@ class Campaign:
                 "air support or enemy dispositions that are not in them. Losses "
                 "are given in strength points, not men. Weigh the gains against "
                 "the costs: your recommendation may be to press on, consolidate "
-                "or halt, whichever the facts support."
+                "or halt, whichever the facts support.\n\n"
+                # Without a burden of proof, arguing both cases only traded
+                # "halt" for "consolidate" as the fixed answer (see STAFF_SCHEMA).
+                "Army Group Center's mission is the advance on Moscow, and OKH "
+                "expects it to continue. Recommend a halt only where the listed "
+                "facts show the offensive cannot go on, and name those facts. "
+                "Otherwise say where to press."
             )
             user = "Events of the week:\n- " + "\n- ".join(facts)
-            reply = await self.client.request_text(
-                [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                role="staff",
-            )
+            reply = await self._staff_assessment(brief, user)
             if reply:
                 return reply
         return "Weekly staff assessment:\n- " + "\n- ".join(facts)
+
+    async def _staff_assessment(self, brief: str, user: str) -> str:
+        """The staff argues both sides, then decides (STAFF_SCHEMA); the player
+        sees only the report. Every failure degrades - a turn must never fail
+        over its staff report: a backend that refuses the schema gets the same
+        brief as plain prose, and a reply that is not the expected JSON is
+        shown as it came."""
+        structured = brief + (
+            "\n\nReply as JSON: first the strongest case for pressing on, then "
+            "the strongest case for halting, each from the listed facts; then "
+            "your recommendation (press_on, consolidate or halt); then the "
+            "report itself."
+        )
+        try:
+            raw = await self.client.request_structured(
+                [{"role": "system", "content": structured}, {"role": "user", "content": user}],
+                STAFF_SCHEMA,
+                role="staff",
+            )
+        except LMStudioUnavailable as e:
+            if e.status_code is None:  # no backend at all: no schema fixes that
+                raise
+            logger.warning(
+                "The server rejected the staff-report schema (HTTP %s: %s); "
+                "retrying as plain prose, without the argue-both-sides verdict.",
+                e.status_code, e,
+            )
+            return await self.client.request_text(
+                [{"role": "system", "content": brief}, {"role": "user", "content": user}],
+                role="staff",
+            )
+        try:
+            report = json.loads(LMStudioClient._extract_json(raw)).get("report")
+        except (json.JSONDecodeError, AttributeError):
+            report = None
+        return report.strip() if isinstance(report, str) and report.strip() else raw
 
     async def converse(self, commander_id: str, message: str) -> str:
         """A signal exchange with one of your commanders. The thread persists

@@ -31,6 +31,13 @@ def test_staff_report_calls_a_pocket_a_pocket():
     assert "pocket" in facts or "encircled" in facts
 
 
+def _is_orders_call(body: dict) -> bool:
+    # By schema name, not by whether any schema is present: the staff report
+    # carries one too (STAFF_SCHEMA).
+    fmt = body.get("response_format") or {}
+    return fmt.get("json_schema", {}).get("name") == "commander_orders"
+
+
 def scripted_as_model(campaign):
     """Mock transport that answers as whichever commander was prompted,
     using the scripted policy - a deterministic stand-in for the LLM."""
@@ -38,7 +45,7 @@ def scripted_as_model(campaign):
 
     def responder(request):
         body = json.loads(request.content)
-        if "response_format" not in body:  # staff report / conversation: plain text
+        if not _is_orders_call(body):  # staff report / conversation: prose
             return httpx.Response(
                 200,
                 json={"choices": [{"message": {"content": "Staff assessment: the front advances."}}]},
@@ -235,7 +242,7 @@ async def test_transition_turn_briefs_on_current_weather_not_last_turns():
 
     def responder(request):
         body = json.loads(request.content)
-        if "response_format" not in body:
+        if not _is_orders_call(body):
             return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
         system = body["messages"][0]["content"]
         briefings.append(body["messages"][1]["content"])

@@ -514,3 +514,19 @@ def test_an_order_with_no_corps_key_is_rejected_naming_corps_id():
     assert orders is None
     assert "corps_id" in problems[0]
     assert "'corps'" not in problems[0]
+
+
+async def test_a_structured_request_carries_its_schema_and_the_params():
+    seen = []
+
+    def responder(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"a": 1}'}}]})
+
+    schema = {"name": "s", "strict": True, "schema": {"type": "object"}}
+    client = make_client(responder, params={"reasoning_effort": "none"}, models={"staff": "big"})
+    raw = await client.request_structured([{"role": "user", "content": "x"}], schema, role="staff")
+    assert raw == '{"a": 1}'
+    assert seen[0]["response_format"] == {"type": "json_schema", "json_schema": schema}
+    assert seen[0]["reasoning_effort"] == "none"
+    assert seen[0]["model"] == "big"

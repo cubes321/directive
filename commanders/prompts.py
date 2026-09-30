@@ -43,6 +43,27 @@ ORDER_SCHEMA = {
     },
 }
 
+STAFF_SCHEMA = {
+    "name": "staff_assessment",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        # Generated in this order, which is the whole mechanism: the verdict
+        # is decoded only after both cases are written. Asked for a report and
+        # "one recommendation", qwen3.5-9b halted 29 times in 30 whatever the
+        # week; made to argue both sides first, its verdict followed the facts.
+        "properties": {
+            "case_for_pressing_on": {"type": "string"},
+            "case_for_halting": {"type": "string"},
+            "recommendation": {"type": "string", "enum": ["press_on", "consolidate", "halt"]},
+            "report": {"type": "string"},
+        },
+        "required": ["case_for_pressing_on", "case_for_halting", "recommendation", "report"],
+        "additionalProperties": False,
+    },
+}
+
+
 def _legal_destinations(state: GameState, corps) -> list[str]:
     """Every objective ``validate_orders`` would accept from this corps on a
     moving posture: its reach set, plus staying where it is (``_order_errors``
