@@ -63,7 +63,10 @@ def _corps_order_from_dict(data: dict) -> CorpsOrder:
     commander should be asked to defend - they should never reach validation.
     Nor is ``corps`` for ``corps_id``: kimi-k2.6 renames the key in every order
     under the per-turn schema, and each one cost a paid repair round-trip."""
-    corps_id = data["corps_id"] if "corps_id" in data else data["corps"]
+    corps_id = data.get("corps_id", data.get("corps"))
+    if corps_id is None:
+        # the repair prompt quotes this: name the real key, never the alias
+        raise KeyError("corps_id")
     return CorpsOrder(
         corps_id=corps_id.strip(),
         posture=data["posture"],

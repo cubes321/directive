@@ -504,3 +504,13 @@ async def test_an_order_keyed_corps_needs_no_repair_round_trip():
     orders = await make_client(responder).request_orders(state, dossier)
     assert len(calls) == 1
     assert [o.corps_id for o in orders.orders] == ["xxiv_pz", "xlvi_pz", "xlvii_pz"]
+
+
+def test_an_order_with_no_corps_key_is_rejected_naming_corps_id():
+    # The repair prompt quotes this error; it must ask for the real key, not
+    # the alias the parser also happens to accept.
+    content = json.dumps({"orders": [{"posture": "defend", "objective": None}]})
+    orders, problems = LMStudioClient._parse(content, "guderian")
+    assert orders is None
+    assert "corps_id" in problems[0]
+    assert "'corps'" not in problems[0]
