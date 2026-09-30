@@ -31,6 +31,7 @@ import random
 from dataclasses import dataclass, field
 
 from engine.combat import power_breakdown, resolve_combat
+from engine.movement import BASE_MP
 from engine.orders import CommanderOrders
 from engine.state import GameState
 from engine.supply import (
@@ -44,6 +45,14 @@ from engine.units import DESTROYED_THRESHOLD, Corps
 from engine.weather import weather_for_turn
 
 STACKING_LIMIT = 3
+
+
+def _entry_order(corps: Corps) -> tuple[int, str]:
+    """Who takes the room when more corps reach a region than it can hold:
+    the faster formation first, then the corps id. Sorting by id alone filled
+    Baranovichi, Minsk and Smolensk with Kluge's infantry (ix_ak, vii_ak sort
+    before xlvi_pz) and left Guderian's panzers queued outside."""
+    return (-BASE_MP[corps.kind], corps.id)
 RESERVE_ORG_RECOVERY = 20
 RESERVE_STR_RECOVERY = 5
 REST_ORG_RECOVERY = 10
@@ -147,7 +156,7 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         )
 
     # 1. Uncontested moves
-    for corps_id in sorted(destinations):
+    for corps_id in sorted(destinations, key=lambda cid: _entry_order(state.corps[cid])):
         corps = state.corps[corps_id]
         dest = destinations[corps_id]
         if living_enemies_in(dest, corps.side):
@@ -170,7 +179,7 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         attackers = [state.corps[cid] for cid in attacker_ids]
         defenders = living_enemies_in(region, attackers[0].side)
         if not defenders:  # defenders vanished earlier this turn
-            for corps in attackers:
+            for corps in sorted(attackers, key=_entry_order):
                 if friendly_count(region, corps.side) < STACKING_LIMIT:
                     corps.location = region
                     state.control[region] = corps.side
@@ -233,7 +242,7 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
             outcome = "defender_held"
 
         if defenders_gone:
-            for corps in attackers:
+            for corps in sorted(attackers, key=_entry_order):
                 if not corps.is_destroyed and friendly_count(region, corps.side) < STACKING_LIMIT:
                     corps.location = region
             state.control[region] = attackers[0].side

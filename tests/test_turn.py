@@ -499,3 +499,39 @@ def test_last_orders_holds_only_the_most_recent_turn():
         )
     })
     assert set(state.last_orders) == {"hoth"}
+
+
+def _crowded_attack_state(defender_strength: int | None):
+    """Two infantry and two panzer corps at west, all ordered into center, which
+    holds three. Ids are chosen so alphabetical order puts both infantry first,
+    exactly as ix_ak and vii_ak sorted ahead of xlvi_pz at Baranovichi."""
+    data = state_data()
+    data["corps"] = [
+        {"id": cid, "name": cid, "side": "axis", "kind": kind,
+         "location": "west", "commander": "guderian"}
+        for cid, kind in (("ia", "infantry"), ("ib", "infantry"), ("pz1", "panzer"), ("pz2", "panzer"))
+    ]
+    if defender_strength is not None:
+        data["corps"].append({"id": "sv1", "name": "Sv1", "side": "soviet", "kind": "infantry",
+                              "location": "center", "commander": "pavlov",
+                              "strength": defender_strength, "organization": 10})
+    return GameState.from_dict(data)
+
+
+def test_panzers_enter_a_captured_region_before_infantry():
+    # Playtest 2026-09-30: Kluge's infantry filled Baranovichi, Minsk and
+    # Smolensk because corps moved in by sorted id, and Guderian's panzers were
+    # left queued outside. The fast formations lead; the infantry follow.
+    s = _crowded_attack_state(defender_strength=10)
+    resolve_turn(s, orders(*(CorpsOrder(c, "attack", "center") for c in ("ia", "ib", "pz1", "pz2"))))
+    inside = sorted(c.id for c in s.corps_at("center") if c.side == "axis")
+    assert inside == ["ia", "pz1", "pz2"]
+    assert s.corps["ib"].location == "west"
+
+
+def test_panzers_enter_an_empty_region_before_infantry():
+    s = _crowded_attack_state(defender_strength=None)
+    resolve_turn(s, orders(*(CorpsOrder(c, "advance", "center") for c in ("ia", "ib", "pz1", "pz2"))))
+    inside = sorted(c.id for c in s.corps_at("center") if c.side == "axis")
+    assert inside == ["ia", "pz1", "pz2"]
+    assert s.corps["ib"].location == "west"
