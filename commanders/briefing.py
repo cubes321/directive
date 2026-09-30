@@ -29,11 +29,38 @@ def _is_full(state: GameState, region_id: str, side: str) -> bool:
     ) >= STACKING_LIMIT
 
 
-def _range_label(state: GameState, region_id: str, side: str) -> str:
+def _front_distances(state: GameState, side: str) -> dict[str, int]:
+    """Hops from every region to the nearest enemy-held one: 0 is enemy ground,
+    1 the front line, more is depth behind it. Empty when the enemy holds
+    nothing, so there is no front to measure from."""
+    enemy_held = [r for r, s in state.control.items() if s != side]
+    return state.game_map.distances_from(enemy_held) if enemy_held else {}
+
+
+def _depth_note(region_id: str, here: int | None, to_front: dict[str, int]) -> str:
+    """Where a reachable region lies relative to the front, and - for friendly
+    ground - whether going there takes this corps away from the enemy.
+
+    Without this the range list was flat and alphabetical: a persona told to
+    "bypass" the enemy picked a familiar name, and 9b Guderian drove back to
+    Siedlce, Slutsk and Minsk while reporting a deep flanking move."""
+    depth = to_front.get(region_id)
+    if depth is None:
+        return ""
+    if depth == 0:
+        return " (enemy-held)"
+    # no commas: the range line itself is comma-separated
+    where = "on the front line" if depth == 1 else f"{depth} regions behind the front"
+    away = "; a move away from the enemy" if here is not None and depth > here else ""
+    return f" (ours: {where}{away})"
+
+
+def _range_label(state: GameState, region_id: str, side: str,
+                 here: int | None = None, to_front: dict[str, int] | None = None) -> str:
     label = _region_label(state, region_id)
     if _is_full(state, region_id, side):
         label += " (FULL - no room)"
-    return label
+    return label + _depth_note(region_id, here, to_front or {})
 
 
 def _corps_status(state: GameState, corps) -> str:
@@ -69,10 +96,7 @@ def _closing_move(state: GameState, corps, in_range: dict[str, int]) -> str | No
     move option at all - its staff could only say "hold current position", and
     it did, for turns on end. The bias got worse the more ground you took.
     """
-    enemy_held = [r for r, side in state.control.items() if side != corps.side]
-    if not enemy_held:
-        return None
-    to_front = state.game_map.distances_from(enemy_held)
+    to_front = _front_distances(state, corps.side)
     here = to_front.get(corps.location)
     if here is None:
         return None
@@ -180,9 +204,13 @@ def build_briefing(state: GameState, commander: str) -> str:
         in_range = reachable(
             state.game_map, corps.location, movement_points(corps, state.weather), blocked=enemy_held
         )
+        to_front = _front_distances(state, corps.side)
+        here = to_front.get(corps.location)
+        # front first: a list that opens with the rear invites a retreat
+        by_depth = sorted(in_range, key=lambda r: (to_front.get(r, 0), r))
         lines.append(
             "  In range this week: "
-            + (", ".join(_range_label(state, r, corps.side) for r in sorted(in_range))
+            + (", ".join(_range_label(state, r, corps.side, here, to_front) for r in by_depth)
                or "(nowhere)")
         )
     return "\n".join(lines)

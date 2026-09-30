@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from commanders.briefing import build_briefing
@@ -79,6 +80,80 @@ def test_staff_suggests_closing_up_when_no_enemy_is_in_range():
     # and it must point at the region nearer the front, not the one behind it
     forward = next(ln for ln in options if "far" in ln or "mid" in ln)
     assert "mid" not in forward
+
+
+def _range_entries(text: str) -> list[str]:
+    """The first corps' "In range" line, split into its per-region entries."""
+    line = next(ln for ln in text.splitlines() if ln.strip().startswith("In range"))
+    return line.split(": ", 1)[1].split(", ")
+
+
+def _entry(entries: list[str], region_id: str) -> str:
+    return next(e for e in entries if f"[id: {region_id}]" in e)
+
+
+def _forward_corps_state():
+    # Same line, but the corps stands at "far", next to the enemy: everything
+    # friendly it can reach lies behind it.
+    state = _rear_area_state()
+    state.corps["r1"].location = "far"
+    return state
+
+
+def test_in_range_marks_enemy_ground_and_depth_behind_the_front():
+    # A flat, alphabetical list gave a small model no way to tell the front
+    # from the rear: Guderian "bypassed" the enemy by driving back to Siedlce,
+    # Slutsk and Minsk, and "attacked" ground his own infantry already held.
+    entries = _range_entries(build_briefing(_forward_corps_state(), "strauss"))
+    assert "enemy-held" in _entry(entries, "front")
+    assert "2 regions behind the front" in _entry(entries, "mid")
+    assert "3 regions behind the front" in _entry(entries, "rear")
+
+
+def test_in_range_flags_a_move_away_from_the_enemy():
+    entries = _range_entries(build_briefing(_forward_corps_state(), "strauss"))
+    assert "away from the enemy" in _entry(entries, "mid")
+    assert "away from the enemy" in _entry(entries, "rear")
+    assert "away from the enemy" not in _entry(entries, "front")
+
+
+def test_in_range_does_not_call_a_move_up_from_the_rear_a_retreat():
+    # Depth is relative to the front, direction relative to the corps: for a
+    # corps parked in the rear, "2 behind the front" is still a step forward.
+    entries = _range_entries(build_briefing(_rear_area_state(), "strauss"))
+    assert "on the front line" in _entry(entries, "far")
+    assert "away from the enemy" not in _entry(entries, "mid")
+    assert "away from the enemy" not in _entry(entries, "far")
+
+
+def test_in_range_lists_the_front_first():
+    # Ids chosen so alphabetical order is exactly backwards (rear first) - the
+    # plain line above happens to sort front-to-back by name and cannot tell.
+    data = _rear_area_state().to_dict()
+    rename = {"rear": "a_rear", "mid": "b_mid", "far": "c_far", "front": "z_front"}
+    raw = json.loads(json.dumps(data))
+    for region in raw["map"]["regions"]:
+        region["id"] = rename[region["id"]]
+    for edge in raw["map"]["edges"]:
+        edge["between"] = [rename[r] for r in edge["between"]]
+    raw["control"] = {rename[r]: s for r, s in raw["control"].items()}
+    raw["supply_sources"] = {s: [rename[r] for r in rs] for s, rs in raw["supply_sources"].items()}
+    for corps in raw["corps"]:
+        corps["location"] = rename[corps["location"]]
+    state = GameState.from_dict(raw)
+    state.corps["r1"].location = "c_far"
+    entries = _range_entries(build_briefing(state, "strauss"))
+    order = [e.split("[id: ")[1].split("]")[0] for e in entries]
+    assert order == ["z_front", "b_mid", "a_rear"]
+
+
+def test_guderians_opening_briefing_marks_siedlce_as_the_rear():
+    # The exact move from both playtests: XLVII Panzer Corps sent back to
+    # Siedlce on 22 June "to strike at the enemy's logistical spine".
+    state = load_scenario(DATA_DIR)
+    entries = _range_entries(build_briefing(state, "guderian"))
+    assert "away from the enemy" in _entry(entries, "siedlce")
+    assert "enemy-held" in _entry(entries, "baranovichi")
 
 
 def briefing_for_guderian():
