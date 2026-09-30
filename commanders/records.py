@@ -24,6 +24,12 @@ FATIGUE_RISE = 2   # exhaustion sets in faster...
 FATIGUE_FALL = 1   # ...than it lifts
 
 
+def strength_points(n: int) -> str:
+    """A loss with its unit. A bare "losses 41" was read as forty-one men by
+    every model tried, up to 122B."""
+    return f"{n} strength point" if n == 1 else f"{n} strength points"
+
+
 def _commander_of(state: GameState, corps_id: str) -> str | None:
     corps = state.corps.get(corps_id)
     return corps.commander if corps else None
@@ -163,18 +169,18 @@ def update_track_records(
             elif won:
                 summary = (
                     f"Attacked {region}: position carried, enemy thrown back "
-                    f"(own losses {combat['attacker_losses']} strength points)."
+                    f"(own losses {strength_points(combat['attacker_losses'])})."
                 )
             elif pocket:
                 summary = (
                     f"Attacked {region}: the defenders are encircled with no line of "
                     f"retreat; the pocket is being reduced (their losses "
-                    f"{combat['defender_losses']} strength points, own {combat['attacker_losses']})."
+                    f"{strength_points(combat['defender_losses'])}, own {combat['attacker_losses']})."
                 )
             else:
                 summary = (
                     f"Attacked {region}: assault repulsed "
-                    f"(own losses {combat['attacker_losses']} strength points)."
+                    f"(own losses {strength_points(combat['attacker_losses'])})."
                 )
             dossiers[commander].add_record(report.turn, summary)
 
@@ -186,16 +192,16 @@ def update_track_records(
             elif won:
                 summary = (
                     f"Defended {region}: forced to retreat "
-                    f"(losses {combat['defender_losses']} strength points)."
+                    f"(losses {strength_points(combat['defender_losses'])})."
                 )
             elif pocket:
                 summary = (
                     f"Encircled at {region}: thrown back with no line of retreat, the "
-                    f"pocket is being reduced (losses {combat['defender_losses']} strength points)."
+                    f"pocket is being reduced (losses {strength_points(combat['defender_losses'])})."
                 )
             else:
                 summary = (
                     f"Defended {region}: held against attack "
-                    f"(losses {combat['defender_losses']} strength points)."
+                    f"(losses {strength_points(combat['defender_losses'])})."
                 )
             dossiers[commander].add_record(report.turn, summary)

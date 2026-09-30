@@ -96,3 +96,103 @@ def test_track_records_give_losses_in_strength_points():
             numbers = [w for w in summary.replace("(", " ").split() if w.strip(",.)").isdigit()]
             assert numbers, (outcome, cid, summary)
             assert "strength points" in summary, (outcome, cid, summary)
+
+
+# --- the staff report works from the whole week, and only from it ---------------
+#
+# _staff_facts gave the chief of staff combat losses, starving corps and the
+# weather - nothing that went well - then asked "what worries the staff" and for
+# "one recommendation". On qwen3.5-9b he recommended halting in 15 of 15
+# reports, and invented air support and enemy reserves to justify it.
+
+def _enemy_region(campaign: Campaign) -> str:
+    return sorted(r for r, s in campaign.state.control.items() if s != campaign.player_side)[0]
+
+
+def _own_region(campaign: Campaign) -> str:
+    return sorted(r for r, s in campaign.state.control.items() if s == campaign.player_side)[0]
+
+
+def test_staff_facts_report_ground_taken_this_week():
+    campaign = Campaign.new(DATA_DIR)
+    before = dict(campaign.state.control)
+    taken = _enemy_region(campaign)
+    campaign.state.control[taken] = campaign.player_side
+    facts = campaign._staff_facts(TurnReport(turn=1), control_before=before)
+    name = campaign.state.game_map.regions[taken].name
+    assert f"Ground taken this week: {name}." in facts
+
+
+def test_staff_facts_report_ground_lost_this_week():
+    campaign = Campaign.new(DATA_DIR)
+    before = dict(campaign.state.control)
+    lost = _own_region(campaign)
+    campaign.state.control[lost] = "soviet"
+    facts = campaign._staff_facts(TurnReport(turn=1), control_before=before)
+    assert f"Ground lost this week: {campaign.state.game_map.regions[lost].name}." in facts
+
+
+def test_staff_facts_list_taken_ground_in_a_stable_order():
+    campaign = Campaign.new(DATA_DIR)
+    before = dict(campaign.state.control)
+    enemy = sorted(r for r, s in before.items() if s != campaign.player_side)[:3]
+    for region in reversed(enemy):
+        campaign.state.control[region] = campaign.player_side
+    line = next(f for f in campaign._staff_facts(TurnReport(turn=1), control_before=before)
+                if f.startswith("Ground taken"))
+    names = [campaign.state.game_map.regions[r].name for r in enemy]
+    assert line == f"Ground taken this week: {', '.join(sorted(names))}."
+
+
+def test_staff_facts_without_a_before_picture_say_nothing_about_ground():
+    campaign = Campaign.new(DATA_DIR)
+    facts = " ".join(campaign._staff_facts(TurnReport(turn=1)))
+    assert "Ground" not in facts
+
+
+def test_staff_facts_give_the_standing_of_each_live_okh_objective():
+    campaign = Campaign.new(DATA_DIR)
+    facts = campaign._staff_facts(TurnReport(turn=1))
+    line = next(f for f in facts if "Close the Bialystok-Minsk pocket" in f)
+    assert "week 4" in line and "Minsk" in line and "not yet taken" in line
+    assert not any("Smolensk, the gate to Moscow" in f for f in facts)  # not yet issued
+
+
+def test_a_held_objective_is_provisional_until_its_deadline():
+    # OKH scores holding the target AT the deadline; the staff must not tell
+    # the player the job is done in week 2.
+    campaign = Campaign.new(DATA_DIR)
+    campaign.state.control["minsk"] = campaign.player_side
+    line = next(f for f in campaign._staff_facts(TurnReport(turn=2))
+                if "Close the Bialystok-Minsk pocket" in f)
+    assert "in our hands" in line and "hold it through week 4" in line
+
+
+async def test_the_staff_prompt_confines_the_report_to_the_facts():
+    campaign, captured = _capturing_campaign(reply="Assessment.")
+    await campaign._staff_report(TurnReport(turn=1))
+    system = _system(captured[0])
+    assert "only from the events listed" in system
+    assert "strength points, not men" in system
+    assert "press on, consolidate or halt" in system
+
+
+async def test_a_played_turn_tells_the_staff_what_ground_changed_hands():
+    # No client: the staff dispatch is the fact list itself, so what end_turn
+    # handed _staff_facts is visible in it.
+    campaign = Campaign.new(DATA_DIR)
+    before = dict(campaign.state.control)
+    result = await campaign.play_turn({})
+    staff = next(d for d in result.dispatches if d["commander"] == "staff")["text"]
+    changed = sorted(r for r, s in campaign.state.control.items() if before.get(r) != s)
+    assert changed, "the opening turn should move the line"
+    assert "Ground taken this week" in staff or "Ground lost this week" in staff
+
+
+def test_a_met_objective_past_its_deadline_reads_as_achieved_not_live():
+    campaign = Campaign.new(DATA_DIR)
+    campaign.state.control["minsk"] = campaign.player_side
+    next(o for o in campaign.state.objectives if o["target"] == "minsk")["status"] = "met"
+    line = next(f for f in campaign._staff_facts(TurnReport(turn=6))
+                if "Close the Bialystok-Minsk pocket" in f)
+    assert "achieved" in line

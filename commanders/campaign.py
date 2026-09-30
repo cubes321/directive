@@ -31,7 +31,7 @@ from commanders.intent import soviet_directives
 from commanders.llm import LMStudioClient
 from commanders.orchestrator import gather_orders
 from commanders.prompts import _addressee_block, build_persona_prompt
-from commanders.records import update_morale, update_track_records
+from commanders.records import strength_points, update_morale, update_track_records
 from commanders.scripted import scripted_orders
 from engine.objectives import advance_objectives, issue_due_objectives
 from engine.scenario import load_scenario
@@ -225,6 +225,7 @@ class Campaign:
         ]
         self.state.dispatches.extend(dispatches)
 
+        control_before = dict(self.state.control)  # the staff reports what changed
         report = resolve_turn(self.state, all_orders)
         update_track_records(self.state, report, self.dossiers)
         update_morale(self.state, report, self.dossiers, self.player_side)
@@ -233,7 +234,7 @@ class Campaign:
         staff_dispatch = {
             "turn": report.turn,
             "commander": "staff",
-            "text": await self._staff_report(report),
+            "text": await self._staff_report(report, control_before),
         }
         self.state.dispatches.append(staff_dispatch)
         dispatches.append(staff_dispatch)
@@ -322,7 +323,8 @@ class Campaign:
         ]
         return prose_from_reply(await self.client.request_text(messages, role=commander_id))
 
-    def _staff_facts(self, report: TurnReport) -> list[str]:
+    def _staff_facts(self, report: TurnReport,
+                     control_before: dict[str, str] | None = None) -> list[str]:
         """Player-side view of the week, as terse factual lines."""
         facts: list[str] = []
         for c in report.combats:
@@ -344,16 +346,19 @@ class Campaign:
                 own_losses, enemy_losses = c["defender_losses"], c["attacker_losses"]
             line = (
                 f"{region}: {'our attack' if we_attacked else 'enemy attack'}, "
-                # "strength points", not a bare number: every model up to 122B
-                # read "our losses 41" as forty-one men
-                f"{verdict} (our losses {own_losses} strength points, "
-                f"theirs est. {enemy_losses} strength points)"
+                f"{verdict} (our losses {strength_points(own_losses)}, "
+                f"theirs est. {strength_points(enemy_losses)})"
             )
             if c["encircled"]:
                 line += "; the defenders were encircled and destroyed"
             facts.append(line)
         if not facts:
             facts.append("No major engagements this week.")
+        # What went well, too. With only losses and shortages to go on, and one
+        # recommendation to make, the staff recommended halting 15 times in 15.
+        if control_before is not None:
+            facts.extend(self._ground_facts(control_before))
+        facts.extend(self._objective_facts(report.turn))
         starved = [
             c.name for c in self.state.living_corps()
             if c.side == self.player_side and c.supply < 40
@@ -364,15 +369,58 @@ class Campaign:
             facts.append(f"Weather: {self.state.weather}.")
         return facts
 
-    async def _staff_report(self, report: TurnReport) -> str:
-        facts = self._staff_facts(report)
+    def _ground_facts(self, control_before: dict[str, str]) -> list[str]:
+        """Regions that changed hands this week, by name, in a stable order."""
+        regions = self.state.game_map.regions
+        now = self.state.control
+        taken = sorted(regions[r].name for r, s in now.items()
+                       if s == self.player_side and control_before.get(r) != s)
+        lost = sorted(regions[r].name for r, s in control_before.items()
+                      if s == self.player_side and now.get(r) != s)
+        facts = []
+        if taken:
+            facts.append(f"Ground taken this week: {', '.join(taken)}.")
+        if lost:
+            facts.append(f"Ground lost this week: {', '.join(lost)}.")
+        return facts
+
+    def _objective_facts(self, week: int) -> list[str]:
+        """Where each live OKH objective stands. Holding the target counts only
+        if it is still held at the deadline (engine/objectives.py), so a
+        target taken early is reported as provisional, not as done."""
+        facts = []
+        for obj in self.state.objectives:
+            if obj["status"] not in ("active", "accepted", "met"):
+                continue
+            name = self.state.game_map.regions[obj["target"]].name
+            deadline = obj["deadline_turn"]
+            if self.state.control.get(obj["target"]) == self.player_side:
+                standing = (f"{name} is in our hands - hold it through week {deadline}"
+                            if week <= deadline else f"achieved, {name} still in our hands")
+            else:
+                standing = (f"{name} not yet taken" if week <= deadline
+                            else f"{name} not held, and the deadline has passed")
+            facts.append(f"OKH objective '{obj['title']}' (deadline week {deadline}): {standing}.")
+        return facts
+
+    async def _staff_report(self, report: TurnReport,
+                            control_before: dict[str, str] | None = None) -> str:
+        facts = self._staff_facts(report, control_before)
         if self.client is not None:
+            # Hardcoded to the German side: a Soviet player gets von Bock's staff.
             system = (
                 "You are Generalmajor Hans von Greiffenberg, chief of staff of "
                 "Army Group Center, summer 1941. Write the weekly staff assessment "
                 "for Field Marshal von Bock: dry, precise, professional, under 180 "
                 "words, plain text. State what happened, what it cost, what worries "
-                "the staff, and one recommendation. No flattery."
+                "the staff, and one recommendation. No flattery.\n\n"
+                # Unfilled slots get the model's own filler: invented air
+                # support, "reserves near Brest", casualties counted in men.
+                "Work only from the events listed; do not invent units, places, "
+                "air support or enemy dispositions that are not in them. Losses "
+                "are given in strength points, not men. Weigh the gains against "
+                "the costs: your recommendation may be to press on, consolidate "
+                "or halt, whichever the facts support."
             )
             user = "Events of the week:\n- " + "\n- ".join(facts)
             reply = await self.client.request_text(
