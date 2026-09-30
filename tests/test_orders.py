@@ -248,3 +248,22 @@ def test_orders_serialization_round_trip():
         dispatch="Forward!",
     )
     assert CommanderOrders.from_dict(orders.to_dict()) == orders
+
+
+def test_an_order_keyed_corps_instead_of_corps_id_is_read_as_that_corps():
+    # kimi-k2.6 writes "corps" for "corps_id" in every order under the per-turn
+    # schema (0/30 first-try successes in the 2026-09-12 playtest): a format slip,
+    # not a disagreement worth a paid repair round-trip.
+    orders = CommanderOrders.from_dict({
+        "commander": "guderian",
+        "orders": [{"corps": " xxiv_pz", "posture": "attack", "objective": "minsk"}],
+    })
+    assert orders.orders[0].corps_id == "xxiv_pz"
+
+
+def test_corps_id_wins_when_an_order_carries_both_keys():
+    orders = CommanderOrders.from_dict({
+        "commander": "guderian",
+        "orders": [{"corps_id": "xxiv_pz", "corps": "xlvi_pz", "posture": "defend"}],
+    })
+    assert orders.orders[0].corps_id == "xxiv_pz"

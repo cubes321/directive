@@ -140,3 +140,11 @@ def test_commanders_are_told_the_head_of_state_is_not_reading_this():
     soviet = build_system_prompt(_soviet())
     assert "not writing to" in axis
     assert "not writing to" in soviet
+
+
+def test_the_response_format_spells_the_order_keys():
+    # Moonshot's json_schema is not strict, so the schema's key names reach
+    # kimi-k2.6 only as a hint - it wrote "corps" in all 40 probe responses.
+    prompt = build_system_prompt(load_dossiers(DATA_DIR)["guderian"])
+    for key in ('"corps_id"', '"posture"', '"objective"'):
+        assert key in prompt

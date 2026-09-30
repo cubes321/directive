@@ -157,7 +157,8 @@ HOW ORDERS WORK (one set of orders per turn; each turn is one week):
   railhead. Deep advances outrun supply; cut-off corps wither.
 
 RESPONSE FORMAT: respond with JSON only, matching the schema you were given:
-- "orders": one entry per corps of yours.
+- "orders": one entry per corps of yours, each with exactly the keys
+  "corps_id", "posture" and "objective".
 - "dispatch": your report to the theater commander, written fully in character.
   Report what you intend, what you need, and what you think - as this man would.
 - "reasoning": one or two sentences of plain military logic behind the orders.

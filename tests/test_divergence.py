@@ -500,3 +500,19 @@ def test_summarize_groups_by_commander_and_totals_under_all():
     assert rows["guderian"][0] == Counter({"first": 1})
     assert rows["hoth"][0] == Counter({"hold": 1})
     assert rows["ALL"][0] == Counter({"first": 1, "hold": 1})
+
+
+def test_an_order_keyed_corps_is_scored_as_the_engine_reads_it():
+    # Every kimi-k2.6 order says "corps", not "corps_id"; the engine accepts it
+    # (engine/orders.py), so scoring it as unscored would blank out a whole model.
+    state = load_scenario(DATA_DIR)
+    reply = _json.dumps({"orders": [
+        {"corps": "xxiv_pz", "posture": "attack", "objective": "baranovichi"},
+        {"corps": "xlvi_pz", "posture": "advance", "objective": "pripyat"},
+        {"corps": "xlvii_pz", "posture": "defend", "objective": None},
+    ]})
+    buckets, unscored = score_transcript(
+        _transcript(state, "guderian", attempts=[{"response": reply}])
+    )
+    assert buckets == Counter({"first": 1, "middle": 1, "hold": 1})
+    assert unscored == 0

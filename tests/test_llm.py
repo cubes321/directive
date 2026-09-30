@@ -487,3 +487,20 @@ async def test_conversational_requests_still_carry_no_schema():
     client = make_client(responder)
     await client.request_text([{"role": "user", "content": "Report."}])
     assert "response_format" not in seen[0]
+
+
+async def test_an_order_keyed_corps_needs_no_repair_round_trip():
+    state, dossier = setup_state()
+    payload = valid_payload()
+    payload["orders"] = [
+        {"corps" if k == "corps_id" else k: v for k, v in o.items()} for o in payload["orders"]
+    ]
+    calls = []
+
+    def responder(request):
+        calls.append(request)
+        return chat_response(payload)
+
+    orders = await make_client(responder).request_orders(state, dossier)
+    assert len(calls) == 1
+    assert [o.corps_id for o in orders.orders] == ["xxiv_pz", "xlvi_pz", "xlvii_pz"]

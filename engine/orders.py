@@ -60,9 +60,12 @@ def _corps_order_from_dict(data: dict) -> CorpsOrder:
     """Parse one order, normalizing what models get wrong about *format* rather
     than about strategy. A leading space in an id (`" velikie_luki"`, observed
     from qwen3.5-4b) and a blank-string objective are not disagreements the
-    commander should be asked to defend - they should never reach validation."""
+    commander should be asked to defend - they should never reach validation.
+    Nor is ``corps`` for ``corps_id``: kimi-k2.6 renames the key in every order
+    under the per-turn schema, and each one cost a paid repair round-trip."""
+    corps_id = data["corps_id"] if "corps_id" in data else data["corps"]
     return CorpsOrder(
-        corps_id=data["corps_id"].strip(),
+        corps_id=corps_id.strip(),
         posture=data["posture"],
         objective=(data.get("objective") or "").strip() or None,
     )

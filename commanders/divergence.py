@@ -261,7 +261,8 @@ def score_transcript(transcript: dict) -> tuple[Counter, int]:
         if not isinstance(order, dict):
             unscored += 1
             continue
-        corps_id = order.get("corps_id")
+        # "corps" is kimi-k2.6's name for the key; the engine reads it too
+        corps_id = order.get("corps_id", order.get("corps"))
         if isinstance(corps_id, str):
             corps_id = corps_id.strip()   # as engine/orders.py does; see _objective_of
         corps_options = options.get(corps_id)
