@@ -11,6 +11,7 @@ ground, a supply crisis) and when his temperament inclines him to speak up
 
 from __future__ import annotations
 
+import difflib
 import random
 
 from commanders.dossier import Dossier
@@ -23,6 +24,33 @@ SALIENT_CHANCE_BOOST = 0.3
 MAX_CHANCE = 0.85
 SALIENT_MULTIPLIER = 4  # a commander with notable news strongly favored to speak
 SUPPLY_CRISIS = 40
+
+
+# Measured on the 2026-09-30 probe (qwen3.5-9b and qwen3.6-35b, Guderian's real
+# thread): verbatim repeats score 0.98-1.00 overall and share a single passage
+# covering 0.96-1.00 of the message; new messages in the same voice top out at
+# 0.65 and 0.31 - a persona reuses catchphrases, never whole paragraphs.
+ECHO_RATIO = 0.75
+ECHO_PASSAGE = 0.5
+
+
+def is_echo(text: str, earlier: list[str]) -> bool:
+    """Whether ``text`` repeats something already said: nearly the same message
+    overall, or with one earlier line lifted into it wholesale."""
+    if not text:
+        return False
+    for prior in earlier:
+        if not prior:
+            continue
+        matcher = difflib.SequenceMatcher(None, text, prior, autojunk=False)
+        if matcher.ratio() >= ECHO_RATIO:
+            return True
+        # a share of the NEW message: measured against the shorter text, any
+        # reply that mentions a short order ("Take Smolensk.") would count
+        passage = matcher.find_longest_match(0, len(text), 0, len(prior)).size
+        if passage >= ECHO_PASSAGE * len(text):
+            return True
+    return False
 
 
 def salient_events(

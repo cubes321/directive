@@ -141,9 +141,16 @@ def build_briefing(state: GameState, commander: str) -> str:
     ][-6:]
     if recent_exchange:
         lines.append("RECENT EXCHANGES WITH YOUR COMMANDER-IN-CHIEF (weigh them in your decisions):")
+        # dated, and his own pop-ups marked as such: undated, they read as live
+        # and he kept re-arguing a city that had fallen weeks before
         for line in recent_exchange:
-            speaker = "C-in-C" if line["role"] == "player" else "You"
-            lines.append(f'  {speaker}: "{line["text"]}"')
+            if line["role"] == "player":
+                speaker = "C-in-C"
+            elif line.get("unprompted"):
+                speaker = "you (unprompted signal)"
+            else:
+                speaker = "you"
+            lines.append(f'  week {line["turn"]}, {speaker}: "{line["text"]}"')
         lines.append("")
     lines.append("YOUR FORCES:")
     for corps in own:

@@ -22,6 +22,7 @@ from commanders.briefing import build_briefing
 from commanders.communique import (
     BASE_CHANCE,
     MAX_PER_TURN,
+    is_echo,
     select_communique_authors,
 )
 from commanders.dossier import Dossier, load_dossiers
@@ -280,7 +281,12 @@ class Campaign:
         out: list[dict] = []
         for cid, salient in authors:
             text = await self._one_communique(cid, salient)
-            if not text:
+            # Never ship a repeat: Guderian once sent the same pop-up four weeks
+            # running. The directive counts too - it is quoted in his briefing,
+            # and a model will answer in the player's voice instead of its own.
+            said = [line["text"] for line in self.state.conversations.get(cid, [])]
+            said.append(self.state.directives.get(cid, ""))
+            if not text or is_echo(text, said):
                 continue
             self.state.conversations.setdefault(cid, []).append(
                 {"turn": self.state.turn, "role": "commander", "text": text, "unprompted": True}
@@ -293,25 +299,26 @@ class Campaign:
         situation = "; ".join(salient) if salient else "no single event stands out"
         if self.client is None:
             return f"({dossier.name} signals unprompted: {situation}.)"
+        # What has already passed between you reaches the model only through the
+        # briefing's dated exchange block. Replaying the thread as chat turns -
+        # his old pop-ups as back-to-back assistant messages, undated and
+        # unbounded in age - handed the model a template to copy.
         system = (
             build_persona_prompt(dossier)
             + "\n\nYou are sending an UNSOLICITED signal to your theater commander "
             "- he did not ask. Say what is on your mind as this man would: a "
             "warning, a request, a boast, a complaint, or a suggestion. Reply with "
             "the message only - plain prose, no JSON, under 120 words, in "
-            "character.\n\nWHAT PROMPTS YOU NOW: "
+            "character. Speak about this week; do not repeat what you have "
+            "already said.\n\nWHAT PROMPTS YOU NOW: "
             + situation
             + "\n\nYOUR CURRENT SITUATION:\n"
             + build_briefing(self.state, commander_id)
         )
-        thread = self.state.conversations.get(commander_id, [])
-        messages = [{"role": "system", "content": system}]
-        for line in thread[-6:]:
-            role = "user" if line["role"] == "player" else "assistant"
-            messages.append({"role": role, "content": line["text"]})
-        messages.append(
-            {"role": "user", "content": "Send your unprompted signal now, in your own words."}
-        )
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": "Send your unprompted signal now, in your own words."},
+        ]
         return prose_from_reply(await self.client.request_text(messages, role=commander_id))
 
     def _staff_facts(self, report: TurnReport) -> list[str]:
