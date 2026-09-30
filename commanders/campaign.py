@@ -454,7 +454,13 @@ class Campaign:
                 + build_briefing(self.state, commander_id)
             )
             messages = [{"role": "system", "content": system}]
-            for line in thread[-8:]:
+            # Only this week's exchange is a live conversation. Older lines,
+            # and his unprompted signals, reach him through the briefing's
+            # dated block: replayed as bare assistant turns they were the
+            # template the communique echo loop copied.
+            live = [line for line in thread
+                    if line["turn"] == self.state.turn and not line.get("unprompted")]
+            for line in live[-8:]:
                 role = "user" if line["role"] == "player" else "assistant"
                 messages.append({"role": role, "content": line["text"]})
             messages.append({"role": "user", "content": message})
