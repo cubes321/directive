@@ -27,6 +27,13 @@ newest `logs/run-*`):
 .\.venv\Scripts\python.exe replay_campaign.py       # what would a rules change have done?
 ```
 
+Each takes a `run-*` name or a path. A replay is faithful only up to the week
+the rules first diverge: a change that moves corps makes later recorded orders
+stop fitting (the salvage count). Change one rule at a time, keep everything
+else as it was, and judge that first week. To test a *prompt* change for free,
+resend recorded requests from `logs/run-*/campaign/turn*.json` to LM Studio
+with only that text swapped.
+
 **`server/saves/campaign.json` is a live game.** `play_campaign.py` saves over it
 after every turn, so a headless playtest silently eats it — build the `Campaign`
 yourself and save to a scratch path instead. Hash the save before and after and
@@ -119,6 +126,25 @@ outside (e.g. telemetry), the engine *builds the data* and a caller *writes it*
   twice landed on "Comrade Field Marshal". Both sides also reported past the
   player to the head of state. `prompts.py:_addressee_block` names the recipient;
   when you add a field to a prompt, say who or what fills it.
+- **Naming a thing to forbid it primes it.** "Speak of Berlin and the Fuehrer as
+  you like, but you are not writing to them" put Berlin/Führer into 23/120 German
+  dispatch openings ("von Bock, Berlin salutes"). The same permission without the
+  names ("Invoke higher authority as you like…") scored 5/60. Say what you want,
+  not the word you don't.
+- **Never replay a model's own past output as chat turns.** Old pop-ups sent back
+  as assistant messages, undated and unbounded in age, were a template: Guderian
+  sent one message word for word four weeks running, and SIGNAL replies copied
+  his old "To the Theater Commander:" openings. History reaches the model as
+  dated prose in the briefing (`week 4, C-in-C: …`). Only this week's live
+  exchange is replayed as turns (`Campaign.converse`).
+- **When wording won't move a verdict, change the shape of the decision.** The
+  staff recommended halting 29/30 times whatever the week, through better facts
+  and three rewordings. `STAFF_SCHEMA` makes it write the case for pressing on,
+  then for halting, and only then decode the verdict (property order is the
+  mechanism, as in `_corps_branches`). Now the verdict tracks the week. Score
+  such changes by *discrimination* (does the answer differ where the facts
+  differ?), not by the raw rate: schema alone just traded "halt" for
+  "consolidate" everywhere.
 - **Never let a metric's good news absorb its bad news.** `off-menu` in
   `commanders/divergence.py` was meant to mean "the commander chose an objective
   his staff never raised" — the strongest evidence of independence. It silently
@@ -132,6 +158,12 @@ outside (e.g. telemetry), the engine *builds the data* and a caller *writes it*
   validated order set counts a repair as the model going passive — the exact
   false positive an instrument like this exists to avoid. Score
   `attempts[0]`, fall back only when there is no raw attempt.
+- **When the engine overrides a commander, tell him, and let him react.** The
+  garrison hold-back (`turn.py:_hold_back_garrisons`) cancels one corps' move.
+  The countermand goes into his war record and makes a pop-up likelier
+  (`records.garrison_holds`), but nothing tells him how to feel. Hoth protested
+  unprompted, in character, the week it first fired. Keep engine overrides
+  minimal (one corps, not the whole order), and never script the reaction.
 - **Protect emergent personality.** LLM commanders arguing, lunging, or bending
   orders is the product's core value — don't tune it away when adjusting prompts.
   Note that *voice* and *decisions* fail separately: on `kimi-k2.6` commanders
