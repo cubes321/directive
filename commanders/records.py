@@ -30,6 +30,19 @@ def strength_points(n: int) -> str:
     return f"{n} strength point" if n == 1 else f"{n} strength points"
 
 
+def garrison_holds(state: GameState, report: TurnReport) -> list[tuple]:
+    """Orders the engine countermanded this week to keep a city garrisoned
+    (engine/turn.py:_hold_back_garrisons), as (corps, held in, ordered to) with
+    region names. Every reader - war record, communique trigger, staff report -
+    goes through this, so they cannot disagree about what happened."""
+    names = state.game_map.regions
+    return [
+        (state.corps[m["corps"]], names[m["to"]].name, names[m["ordered_to"]].name)
+        for m in report.movements
+        if m.get("held_as_garrison") and m["corps"] in state.corps
+    ]
+
+
 def _commander_of(state: GameState, corps_id: str) -> str | None:
     corps = state.corps.get(corps_id)
     return corps.commander if corps else None
@@ -153,6 +166,17 @@ def update_morale(
 def update_track_records(
     state: GameState, report: TurnReport, dossiers: dict[str, Dossier]
 ) -> None:
+    # A countermanded order is his to resent or accept; the record states it
+    # plainly and the persona decides.
+    for corps, held_in, ordered_to in garrison_holds(state, report):
+        if corps.commander in dossiers:
+            dossiers[corps.commander].add_record(
+                report.turn,
+                f"Your order sending {corps.name} to {ordered_to} was countermanded: "
+                f"higher command held it in {held_in} as the garrison, with the enemy "
+                f"next door.",
+            )
+
     for combat in report.combats:
         region = state.game_map.regions[combat["region"]].name
         won = combat["outcome"] == "defender_retreated"

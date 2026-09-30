@@ -47,6 +47,53 @@ from engine.weather import weather_for_turn
 STACKING_LIMIT = 3
 
 
+LIVE_OBJECTIVE = ("active", "accepted", "met")
+
+
+def _hold_back_garrisons(
+    state: GameState, destinations: dict[str, str], postures: dict[str, str], report
+) -> None:
+    """Keep one corps in a city its side is about to leave empty to the enemy.
+
+    A region qualifies when it is urban or a live OKH objective target, every
+    corps its holder has there is ordered out, no friendly corps is ordered
+    in, and an enemy-held region borders it. The slowest corps (then lowest id)
+    stays and defends; the rest still go - Guderian's lunge is not cancelled,
+    one infantry corps is kept behind. Applies to both sides.
+
+    Playtests 2026-09-30: told to keep two corps in Smolensk, Guderian and
+    Kluge marched every one to Yelnya and the Soviets walked in (-6 standing);
+    under free-hand orders nobody garrisoned Minsk at all. Replayed, this rule
+    saved each city in the week it was lost; a weak phantom security unit saved
+    none, because every loss that mattered was an army marching into an empty
+    city. The reports carry ``held_as_garrison`` so the commander is told his
+    order was countermanded, and can say what he thinks of it.
+    """
+    objectives = {o["target"] for o in state.objectives if o["status"] in LIVE_OBJECTIVE}
+    for side in sorted({c.side for c in state.living_corps()}):
+        for region in sorted(r for r, s in state.control.items() if s == side):
+            if state.game_map.regions[region].terrain != "urban" and region not in objectives:
+                continue
+            here = [c for c in state.corps_at(region) if c.side == side and not c.is_destroyed]
+            if not here or any(c.id not in destinations for c in here):
+                continue
+            if any(
+                dest == region and state.corps[cid].side == side
+                for cid, dest in destinations.items()
+            ):
+                continue  # a relief is marching in
+            neighbours = state.game_map.neighbors(region)
+            if not any(state.control.get(n) not in (None, side) for n in neighbours):
+                continue
+            keep = min(here, key=lambda c: (BASE_MP[c.kind], c.id))
+            ordered_to = destinations.pop(keep.id)
+            postures[keep.id] = "defend"
+            report.movements.append({
+                "corps": keep.id, "to": region, "held_as_garrison": True,
+                "ordered_to": ordered_to,
+            })
+
+
 def _entry_order(corps: Corps) -> tuple[int, str]:
     """Who takes the room when more corps reach a region than it can hold:
     the faster formation first, then the corps id. Sorting by id alone filled
@@ -154,6 +201,8 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
         return sum(
             1 for c in state.corps_at(region) if not c.is_destroyed and c.side == side
         )
+
+    _hold_back_garrisons(state, destinations, postures, report)
 
     # 1. Uncontested moves
     for corps_id in sorted(destinations, key=lambda cid: _entry_order(state.corps[cid])):
@@ -267,7 +316,7 @@ def resolve_turn(state: GameState, all_orders: dict[str, CommanderOrders]) -> Tu
     # 3. Recovery for corps that neither moved nor fought
     moved = {
         m["corps"] for m in report.movements
-        if not m.get("bounced") and not m.get("delayed")
+        if not m.get("bounced") and not m.get("delayed") and not m.get("held_as_garrison")
     }
     for corps in state.living_corps():
         if corps.id in fought or corps.id in moved:

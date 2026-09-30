@@ -15,6 +15,7 @@ import difflib
 import random
 
 from commanders.dossier import Dossier
+from commanders.records import garrison_holds
 from engine.state import GameState
 from engine.turn import TurnReport
 
@@ -91,6 +92,12 @@ def salient_events(
                 note(corps.commander, f"is encircled at {region.name} with no line of retreat")
             else:
                 note(corps.commander, f"held {region.name} against attack")
+
+    for corps, held_in, ordered_to in garrison_holds(state, report):
+        if corps.side == player_side:
+            note(corps.commander, f"higher command countermanded your order: {corps.name} "
+                                  f"was held in {held_in} as its garrison instead of moving "
+                                  f"to {ordered_to}")
 
     for corps in state.living_corps():
         if corps.side == player_side and corps.supply < SUPPLY_CRISIS:

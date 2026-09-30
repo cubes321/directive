@@ -654,6 +654,8 @@ function renderMovements() {
     const who = commanderSurname(c.commander);
     const text = m.arrived
       ? ` — reinforcement under ${who} detrained at ${dest}.`
+      : m.held_as_garrison
+      ? ` — ${who} ordered it to ${regionName[m.ordered_to] || m.ordered_to}, but the staff held it in ${dest} as the garrison.`
       : m.bounced
       ? ` — ${who} ordered a move to ${dest}, but it was full — the corps held position.`
       : ` — ${who}'s corps advanced to ${dest}.`;

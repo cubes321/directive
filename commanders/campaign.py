@@ -32,7 +32,12 @@ from commanders.intent import soviet_directives
 from commanders.llm import LMStudioClient, LMStudioUnavailable
 from commanders.orchestrator import gather_orders
 from commanders.prompts import STAFF_SCHEMA, _addressee_block, build_persona_prompt
-from commanders.records import strength_points, update_morale, update_track_records
+from commanders.records import (
+    garrison_holds,
+    strength_points,
+    update_morale,
+    update_track_records,
+)
 from commanders.scripted import scripted_orders
 from engine.objectives import advance_objectives, issue_due_objectives
 from engine.scenario import load_scenario
@@ -359,6 +364,11 @@ class Campaign:
             facts.append("No major engagements this week.")
         # What went well, too. With only losses and shortages to go on, and one
         # recommendation to make, the staff recommended halting 15 times in 15.
+        for corps, held_in, ordered_to in garrison_holds(self.state, report):
+            if corps.side == self.player_side:
+                who = self.dossiers[corps.commander].name if corps.commander in self.dossiers                     else corps.commander
+                facts.append(f"Staff held {corps.name} in {held_in} as its garrison, "
+                             f"countermanding {who}'s order to move it to {ordered_to}.")
         if control_before is not None:
             facts.extend(self._ground_facts(control_before))
         facts.extend(self._objective_facts(report.turn))
