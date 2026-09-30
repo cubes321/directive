@@ -3,6 +3,7 @@ from pathlib import Path
 from commanders.dossier import Dossier, load_dossiers
 from commanders.prompts import (
     ORDER_SCHEMA,
+    _addressee_block,
     _current_state_block,
     build_persona_prompt,
     build_system_prompt,
@@ -135,11 +136,23 @@ def test_soviet_dispatch_names_a_red_army_recipient_instead():
 def test_commanders_are_told_the_head_of_state_is_not_reading_this():
     # Separate defect, same missing slot: commanders opened "Mein Fuehrer" and
     # "Stalin!", reporting past the player - who IS the recipient - to the head
-    # of state. Invoking them in the body is good drama and stays allowed.
-    axis = build_system_prompt(_dossier())
-    soviet = build_system_prompt(_soviet())
-    assert "not writing to" in axis
-    assert "not writing to" in soviet
+    # of state. Invoking higher authority in the body is good drama and stays
+    # allowed.
+    for prompt in (build_system_prompt(_dossier()), build_system_prompt(_soviet())):
+        assert "Invoke higher authority as you like" in prompt
+        assert "he is the one you are writing to" in prompt
+
+
+def test_the_addressee_block_does_not_name_the_head_of_state():
+    # Naming them to say "you are not writing to them" primed the very words:
+    # replaying 60 real German decision points on qwen3.5-9b, "Speak of Berlin
+    # and the Fuehrer as you like" put them in 23/120 dispatch openings
+    # ("Feldmarschall von Bock, Berlin salutes") and 24/120 bodies, mostly
+    # filler ("The Fuehrer's will is clear"). The unnamed permission: 5/60, 3/60.
+    for dossier in (_dossier(), _soviet()):
+        block = _addressee_block(dossier)
+        for name in ("Berlin", "Fuehrer", "Hitler", "Kremlin", "Stalin"):
+            assert name not in block, (dossier.side, name)
 
 
 def test_the_response_format_spells_the_order_keys():

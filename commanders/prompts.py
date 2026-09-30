@@ -270,21 +270,28 @@ def _addressee_block(dossier: Dossier, reading: str = "dispatch") -> str:
     Invoking Hitler or Stalin in the body stays explicitly allowed - Zhukov
     raging at Stavka is the good kind of insubordination, and this block must
     not tune that away.
+
+    But the permission names no one. "Speak of Berlin and the Fuehrer as you
+    like, but you are not writing to them" primed the very words it warned
+    about: replaying 60 real German decision points on qwen3.5-9b, twice, it put
+    Berlin or the Fuehrer in 23/120 dispatch openings ("Feldmarschall von
+    Bock, Berlin salutes") and 24/120 bodies, mostly filler ("The Fuehrer's
+    will is clear"). The unnamed permission below: 5/60 and 3/60. Guderian
+    still reaches for Berlin when he means it.
     """
     heading = f"WHO IS READING YOUR {reading.upper()}"
+    permission = "Invoke higher authority as you like, but he is the one you are writing to."
     if dossier.side == "axis":
         return (
             f"{heading}: Generalfeldmarschall Fedor von Bock, "
             "commanding Army Group Center - your immediate superior. Address him "
             "as a German officer of 1941 addresses his army group commander. "
-            "Speak of Berlin and the Fuehrer as you like, but you are not "
-            "writing to them."
+            + permission
         )
     return (
         f"{heading}: the Stavka representative commanding your "
         "direction - your immediate superior. Address him as a Red Army officer "
-        "of 1941 addresses his front commander. Speak of the Kremlin and Stalin "
-        "as you like, but you are not writing to them."
+        "of 1941 addresses his front commander. " + permission
     )
 
 
